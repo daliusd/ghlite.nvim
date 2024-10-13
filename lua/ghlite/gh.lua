@@ -109,7 +109,7 @@ end
 function M.new_comment(body, path, line)
   local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   local pr = utils.readp('gh pr view --json number -q .number')[1]
-  local commit_id = utils.readp("git rev-parse HEAD 2> /dev/null")[1]
+  local commit_id = utils.readp("git rev-parse HEAD")[1]
 
   local request = f(
     "gh api --method POST repos/%s/pulls/%d/comments -f \"body=%s\" -f \"commit_id=%s\" -f \"path=%s\" -F \"line=%s\" -f \"side=RIGHT\"",
