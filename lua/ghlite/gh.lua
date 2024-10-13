@@ -95,12 +95,20 @@ function M.reply_to_comment(body, reply_to)
   local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   local pr = utils.readp('gh pr view --json number -q .number')[1]
 
-  local request = f(
-    "gh api --method POST repos/%s/pulls/%d/comments -f \"body=%s\" -F \"in_reply_to=%s\"", repo, pr,
-    body:gsub('"', '\\"'), reply_to)
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'POST',
+    f("repos/%s/pulls/%d/comments", repo, pr),
+    "-f",
+    "body=" .. body,
+    "-F",
+    "in_reply_to=" .. reply_to,
+  }
   config.log('reply_to_comment request', request)
 
-  local resp = json.parse(utils.readp(request))
+  local resp = json.parse(utils.readpt(request))
 
   config.log("reply_to_comment resp", resp)
   return resp
@@ -111,13 +119,26 @@ function M.new_comment(body, path, line)
   local pr = utils.readp('gh pr view --json number -q .number')[1]
   local commit_id = utils.readp("git rev-parse HEAD")[1]
 
-  local request = f(
-    "gh api --method POST repos/%s/pulls/%d/comments -f \"body=%s\" -f \"commit_id=%s\" -f \"path=%s\" -F \"line=%s\" -f \"side=RIGHT\"",
-    repo, pr,
-    body:gsub('"', '\\"'), commit_id, path, line)
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'POST',
+    f("repos/%s/pulls/%d/comments", repo, pr),
+    "-f",
+    "body=" .. body,
+    "-f",
+    "commit_id=" .. commit_id,
+    "-f",
+    "path=" .. path,
+    "-F",
+    "line=" .. line,
+    "-f",
+    "side=RIGHT",
+  }
   config.log('new_comment request', request)
 
-  local resp = json.parse(utils.readp(request))
+  local resp = json.parse(utils.readpt(request))
 
   config.log("new_comment resp", resp)
   return resp

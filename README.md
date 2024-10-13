@@ -20,11 +20,13 @@ nvim 0.10+
 - [x] Update quickfix list on reply/comment
 - [x] ~~Use plenary Jobs~~ use vim.system
 - [x] Sort comments by filename and line number
-- [ ] Use temp files instead of nofile for comment and diff window
+- [x] ~~Use temp files instead of nofile for comment and diff window~~ There is no value in this.
 - [ ] Select comment on reply if there are multiple comments on the same line
+- [ ] nil PR
 - [ ] Open comment thread in browser
 - [ ] Checkout PR
 - [ ] Allow to configure how diff and comment windows are shown (split, vsplit or in the same window)
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
+- [ ] Allow to comment on multiple lines (visual mode)
