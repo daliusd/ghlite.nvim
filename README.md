@@ -14,7 +14,7 @@ Neovim plugin to work GitHub PRs quickly.
 - [x] Allow to comment directly in the code
 - [x] Handle error on reply/comment
 - [x] Update quickfix list on reply/comment
-- [ ] Use plenary Jobs
+- [x] ~~Use plenary Jobs~~ use vim.system
 - [ ] Sort comments by filename and line number
 - [ ] Use temp files instead of nofile for comment and diff window
 - [ ] Select comment on reply if there are multiple comments on the same line

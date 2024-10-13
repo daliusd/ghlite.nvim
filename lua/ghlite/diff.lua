@@ -25,6 +25,7 @@ local function open_file_from_diff()
 end
 
 function M.load_pr_diff()
+  vim.print('PR diff loading started...')
   local diff_content = utils.readp('gh pr diff')
 
   local buf = vim.api.nvim_create_buf(false, true)

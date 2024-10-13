@@ -26,6 +26,7 @@ local function load_comments_to_quickfix_list()
 end
 
 M.load_comments = function()
+  vim.print('Comment loading started...')
   M.comments = gh.load_comments()
   load_comments_to_quickfix_list()
 
