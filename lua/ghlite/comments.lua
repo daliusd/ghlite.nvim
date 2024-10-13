@@ -8,7 +8,20 @@ M.comments = {}
 
 local function load_comments_to_quickfix_list()
   local qf_entries = {}
-  for filename, comments_in_file in pairs(M.comments) do
+
+  local filenames = {}
+  for fn in pairs(M.comments) do
+    table.insert(filenames, fn)
+  end
+  table.sort(filenames)
+
+  for _, filename in pairs(filenames) do
+    local comments_in_file = M.comments[filename]
+
+    table.sort(comments_in_file, function(a, b)
+      return a.line < b.line
+    end)
+
     for _, comment in pairs(comments_in_file) do
       table.insert(qf_entries, {
         filename = filename,

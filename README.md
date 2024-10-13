@@ -2,6 +2,10 @@
 
 Neovim plugin to work GitHub PRs quickly.
 
+## Requirements
+
+nvim 0.10+
+
 ## TODO
 
 - [x] Investigate if I can use quickfix list and show comments on hover
@@ -15,7 +19,7 @@ Neovim plugin to work GitHub PRs quickly.
 - [x] Handle error on reply/comment
 - [x] Update quickfix list on reply/comment
 - [x] ~~Use plenary Jobs~~ use vim.system
-- [ ] Sort comments by filename and line number
+- [x] Sort comments by filename and line number
 - [ ] Use temp files instead of nofile for comment and diff window
 - [ ] Select comment on reply if there are multiple comments on the same line
 - [ ] Open comment thread in browser
