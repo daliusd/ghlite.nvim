@@ -110,3 +110,4 @@ Opens comment under cursor in browser using `open_command` command (default
 - [ ] Allow to comment on multiple lines (visual mode)
 - [ ] Go to exact line from diff (resolve line from diff)
 - [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
+- [ ] use html_url of last comment in conversation
