@@ -100,7 +100,9 @@ M.comment_on_line = function()
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].filetype = 'markdown'
 
-  vim.api.nvim_command('split')
+  if config.comment_split then
+    vim.api.nvim_command(config.comment_split)
+  end
   vim.api.nvim_set_current_buf(buf)
   local prompt = "<!-- Type your comment and press Ctrl + Enter: -->"
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
@@ -191,7 +193,7 @@ M.open_comment = function()
   local possible_conversation = M.find_possible_conversations(current_filename, current_line)
 
   if #possible_conversation == 1 then
-    utils.readpt({ 'open', possible_conversation[1].url })
+    utils.readpt({ config.open_command, possible_conversation[1].url })
   elseif #possible_conversation > 1 then
     vim.ui.select(
       possible_conversation,

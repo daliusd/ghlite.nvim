@@ -1,13 +1,30 @@
 local M = {}
 
-M.config = {}
+M.debug = false
+M.diff_split = 'vsplit'
+M.comment_split = 'split'
+M.open_command = 'open'
 
 function M.setup(config)
-  M.config = config
+  if config.debug ~= nil then
+    M.debug = config.debug
+  end
+
+  if config.diff_split ~= nil then
+    M.diff_split = config.diff_split
+  end
+
+  if config.comment_split ~= nil then
+    M.comment_split = config.comment_split
+  end
+
+  if config.open_command ~= nil then
+    M.open_command = config.open_command
+  end
 end
 
 function M.log(key, message)
-  if M.config.debug then
+  if M.debug then
     local home = os.getenv("HOME")
     local log_file_name = home .. '/.ghlite.log'
     local log_file = io.open(log_file_name, "a")

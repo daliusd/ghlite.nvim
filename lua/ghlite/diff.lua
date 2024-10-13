@@ -1,4 +1,5 @@
 local utils = require "ghlite.utils"
+local config = require "ghlite.config"
 
 local M = {}
 
@@ -36,7 +37,9 @@ function M.load_pr_diff()
 
   vim.bo[buf].filetype = 'diff'
 
-  vim.api.nvim_command('vsplit')
+  if config.diff_split then
+    vim.api.nvim_command(config.diff_split)
+  end
   vim.api.nvim_set_current_buf(buf)
 
   vim.bo[buf].readonly = true
@@ -45,6 +48,8 @@ function M.load_pr_diff()
   vim.api.nvim_buf_set_keymap(buf, 'n', 'gf', '', { noremap = true, silent = true, callback = open_file_from_diff })
   vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', ':bwipeout<CR>', { noremap = true, silent = true })
   vim.api.nvim_buf_set_keymap(buf, 'n', 'q', ':bwipeout<CR>', { noremap = true, silent = true })
+
+  vim.print('PR diff loaded.')
 end
 
 return M
