@@ -93,26 +93,45 @@ M.comment_on_line = function()
     if input_lines[1] == prompt then
       table.remove(input_lines, 1)
     end
-    local input = table.concat(input_lines, "\n") -- Concatenate lines
+    local input = table.concat(input_lines, "\n")
 
-    local replied = false
+    local possible_replies = {}
     if M.comments[current_filename] ~= nil then
       for _, comment in pairs(M.comments[current_filename]) do
         if current_line == comment.line then
-          local resp = gh.reply_to_comment(input, comment.id)
-          if resp['errors'] == nil then
-            vim.print('Reply sent.')
-            comment.content = comment.content .. gh.format_comment(gh.convert_comment(resp))
-          else
-            vim.print('Failed to reply to comment.')
-          end
-          replied = true
-          break
+          table.insert(possible_replies, comment)
         end
       end
     end
 
-    if not replied then
+    local function reply(comment)
+      local resp = gh.reply_to_comment(input, comment.id)
+      if resp['errors'] == nil then
+        vim.print('Reply sent.')
+        comment.content = comment.content .. gh.format_comment(gh.convert_comment(resp))
+      else
+        vim.print('Failed to reply to comment.')
+      end
+    end
+
+    vim.cmd('bwipeout')
+
+    if #possible_replies == 1 then
+      reply(possible_replies[1])
+    elseif #possible_replies > 1 then
+      vim.ui.select(
+        possible_replies,
+        {
+          prompt = 'Select comment to reply to:',
+          format_item = function(comment)
+            return string.format('%s', vim.fn.split(comment.content, '\n')[1])
+          end,
+        },
+        function(comment)
+          reply(comment)
+        end
+      )
+    else
       local git_root = utils.get_git_root()
       if current_filename:sub(1, #git_root) == git_root then
         local resp = gh.new_comment(input, current_filename:sub(#git_root + 2), current_line)
@@ -135,8 +154,6 @@ M.comment_on_line = function()
         end
       end
     end
-
-    vim.cmd('bwipeout')
   end
 
   vim.api.nvim_buf_set_keymap(buf, 'n', '<C-CR>', '',
