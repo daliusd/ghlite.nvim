@@ -72,6 +72,18 @@ M.load_comments_on_buffer = function(bufnr)
   end
 end
 
+M.find_possible_conversations = function(current_filename, current_line)
+  local possible_conversation = {}
+  if M.comments[current_filename] ~= nil then
+    for _, comment in pairs(M.comments[current_filename]) do
+      if current_line == comment.line then
+        table.insert(possible_conversation, comment)
+      end
+    end
+  end
+  return possible_conversation
+end
+
 M.comment_on_line = function()
   local pr = utils.readp('gh pr view --json number -q .number')[1]
   if pr == nil then
@@ -101,14 +113,7 @@ M.comment_on_line = function()
     end
     local input = table.concat(input_lines, "\n")
 
-    local possible_replies = {}
-    if M.comments[current_filename] ~= nil then
-      for _, comment in pairs(M.comments[current_filename]) do
-        if current_line == comment.line then
-          table.insert(possible_replies, comment)
-        end
-      end
-    end
+    local possible_conversation = M.find_possible_conversations(current_filename, current_line)
 
     local function reply(comment)
       local resp = gh.reply_to_comment(input, comment.id)
@@ -122,11 +127,11 @@ M.comment_on_line = function()
 
     vim.cmd('bwipeout')
 
-    if #possible_replies == 1 then
-      reply(possible_replies[1])
-    elseif #possible_replies > 1 then
+    if #possible_conversation == 1 then
+      reply(possible_conversation[1])
+    elseif #possible_conversation > 1 then
       vim.ui.select(
-        possible_replies,
+        possible_conversation,
         {
           prompt = 'Select comment to reply to:',
           format_item = function(comment)
@@ -168,6 +173,39 @@ M.comment_on_line = function()
     { noremap = true, silent = true, callback = capture_input_and_close })
   vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', ':bwipeout<CR>', { noremap = true, silent = true })
   vim.api.nvim_buf_set_keymap(buf, 'n', 'q', ':bwipeout<CR>', { noremap = true, silent = true })
+end
+
+M.open_comment = function()
+  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  if pr == nil then
+    vim.print('You are on master.')
+    return
+  end
+
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_filename = vim.api.nvim_buf_get_name(current_buf)
+  local current_line = vim.api.nvim_win_get_cursor(0)[1]
+
+  local possible_conversation = M.find_possible_conversations(current_filename, current_line)
+
+  if #possible_conversation == 1 then
+    utils.readpt({ 'open', possible_conversation[1].url })
+  elseif #possible_conversation > 1 then
+    vim.ui.select(
+      possible_conversation,
+      {
+        prompt = 'Select conversation to open in browser:',
+        format_item = function(comment)
+          return string.format('%s', vim.fn.split(comment.content, '\n')[1])
+        end,
+      },
+      function(comment)
+        utils.readpt({ 'open', comment.url })
+      end
+    )
+  else
+    vim.print('No comments found on this line.')
+  end
 end
 
 return M

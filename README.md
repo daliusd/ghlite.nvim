@@ -23,7 +23,7 @@ nvim 0.10+
 - [x] ~~Use temp files instead of nofile for comment and diff window~~ There is no value in this.
 - [x] Select comment on reply if there are multiple comments on the same line
 - [x] nil PR
-- [ ] Open comment thread in browser
+- [x] Open comment thread in browser
 - [ ] Checkout PR
 - [ ] Allow to configure how diff and comment windows are shown (split, vsplit or in the same window)
 - [ ] Update README

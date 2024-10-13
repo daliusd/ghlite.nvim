@@ -25,6 +25,12 @@ M.setup = function(user_config)
     {}
   )
 
+  vim.api.nvim_create_user_command(
+    'GHLitePROpenComment',
+    comments.open_comment,
+    {}
+  )
+
   vim.api.nvim_create_autocmd("BufReadPost", {
     pattern = "*",
     callback = function(args)
