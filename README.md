@@ -24,7 +24,7 @@ nvim 0.10+
 - [x] Select comment on reply if there are multiple comments on the same line
 - [x] nil PR
 - [x] Open comment thread in browser
-- [ ] Checkout PR
+- [x] Checkout PR
 - [ ] Allow to configure how diff and comment windows are shown (split, vsplit or in the same window)
 - [ ] Update README
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)

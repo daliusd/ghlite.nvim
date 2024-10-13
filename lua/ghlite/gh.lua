@@ -148,4 +148,14 @@ function M.new_comment(body, path, line)
   return resp
 end
 
+function M.get_pr_list()
+  local resp = json.parse(utils.readp('gh pr list --json number,title,author'))
+  return resp
+end
+
+function M.checkout_pr(number)
+  local resp = utils.readp(f('gh pr checkout %s', number))
+  return resp
+end
+
 return M

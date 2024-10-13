@@ -139,7 +139,9 @@ M.comment_on_line = function()
           end,
         },
         function(comment)
-          reply(comment)
+          if comment ~= nil then
+            reply(comment)
+          end
         end
       )
     else
@@ -200,7 +202,9 @@ M.open_comment = function()
         end,
       },
       function(comment)
-        utils.readpt({ 'open', comment.url })
+        if comment ~= nil then
+          utils.readpt({ 'open', comment.url })
+        end
       end
     )
   else

@@ -1,11 +1,18 @@
 local config = require "ghlite.config"
 local comments = require "ghlite.comments"
 local diff = require "ghlite.diff"
+local pr = require "ghlite.pr"
 
 local M = {}
 
 M.setup = function(user_config)
   config.setup(user_config)
+
+  vim.api.nvim_create_user_command(
+    'GHLitePRCheckout',
+    pr.checkout,
+    {}
+  )
 
   vim.api.nvim_create_user_command(
     'GHLitePRLoadComments',
