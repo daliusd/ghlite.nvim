@@ -73,6 +73,12 @@ M.load_comments_on_buffer = function(bufnr)
 end
 
 M.comment_on_line = function()
+  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  if pr == nil then
+    vim.print('You are on master.')
+    return
+  end
+
   local current_buf = vim.api.nvim_get_current_buf()
   local current_filename = vim.api.nvim_buf_get_name(current_buf)
   local current_line = vim.api.nvim_win_get_cursor(0)[1]

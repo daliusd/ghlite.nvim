@@ -71,6 +71,10 @@ function M.load_comments()
   config.log("repo", repo)
 
   local pr = utils.readp('gh pr view --json number -q .number')[1]
+  if pr == nil then
+    vim.print('You are on master.')
+    return {}
+  end
   config.log("pr", pr)
 
   local comments = json.parse(utils.readp(f("gh api repos/%s/pulls/%d/comments", repo, pr)))
