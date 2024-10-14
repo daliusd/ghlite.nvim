@@ -104,6 +104,7 @@ Opens comment under cursor in browser using `open_command` command (default
 - [x] Allow to configure how diff and comment windows are shown (split, vsplit or in the same window)
 - [x] Add open command in config
 - [x] Update README
+- [x] Fix `gf` command when cwd is not at the git root
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)

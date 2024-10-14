@@ -18,7 +18,8 @@ local function open_file_from_diff()
     end
 
     if file_path then
-      file_path = file_path:gsub("^a/", ""):gsub("^b/", "")
+      local git_root = utils.get_git_root()
+      file_path = git_root .. '/' .. file_path:gsub("^a/", ""):gsub("^b/", "")
       vim.cmd("edit " .. file_path)
       return
     end
