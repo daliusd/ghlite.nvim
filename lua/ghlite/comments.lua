@@ -175,8 +175,6 @@ M.comment_on_line = function()
     { noremap = true, silent = true, callback = capture_input_and_close })
   vim.api.nvim_buf_set_keymap(buf, 'i', '<C-CR>', '',
     { noremap = true, silent = true, callback = capture_input_and_close })
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', ':bwipeout<CR>', { noremap = true, silent = true })
-  vim.api.nvim_buf_set_keymap(buf, 'n', 'q', ':bwipeout<CR>', { noremap = true, silent = true })
 end
 
 M.open_comment = function()

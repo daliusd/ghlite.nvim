@@ -24,6 +24,7 @@ Using lazyvim
     config = function()
       require('ghlite').setup({
         debug = false, -- if set to true debugging information is written to ~/.ghlite.log file
+        view_split = 'vsplit', -- set to empty string '' to open in active buffer
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer
         comment_split = 'split', -- set to empty string '' to open in active buffer
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
@@ -31,6 +32,7 @@ Using lazyvim
     end,
     keys = {
       { '<leader>uo', ':GHLitePRCheckout<cr>',     silent = true },
+      { '<leader>uv', ':GHLitePRView<cr>',         silent = true },
       { '<leader>uu', ':GHLitePRLoadComments<cr>', silent = true },
       { '<leader>up', ':GHLitePRDiff<cr>',         silent = true },
       { '<leader>ua', ':GHLitePRAddComment<cr>',   silent = true },
@@ -44,6 +46,10 @@ Using lazyvim
 ### GHLitePRCheckout
 
 This command shows selection of active PRs and checkouts selected PR.
+
+### GHLitePRView
+
+This command shows PR information (wrapper for `gh pr view`).
 
 ### GHLitePRLoadComments
 
@@ -60,8 +66,6 @@ Supported key bindings:
 
 * `gf` go to file from PR diff.
 
-* `ESC` or `q` closes PR diff buffer.
-
 ### GHLitePRAddComment
 
 This command opens buffer where you can write your comment.
@@ -74,8 +78,6 @@ Supported key bindings:
       `GHLitePRLoadComments` command) then comment is added as reply to thread.
 
     * If there is no comment on line then new conversation is started.
-
-* `ESC` or `q` closes comment buffer.
 
 ### GHLitePROpenComment
 

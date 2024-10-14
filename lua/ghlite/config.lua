@@ -1,6 +1,7 @@
 local M = {}
 
 M.debug = false
+M.view_split = 'vsplit'
 M.diff_split = 'vsplit'
 M.comment_split = 'split'
 M.open_command = 'open'
@@ -8,6 +9,10 @@ M.open_command = 'open'
 function M.setup(config)
   if config.debug ~= nil then
     M.debug = config.debug
+  end
+
+  if config.view_split ~= nil then
+    M.view_split = config.view_split
   end
 
   if config.diff_split ~= nil then
