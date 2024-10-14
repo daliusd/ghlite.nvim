@@ -107,10 +107,10 @@ Opens comment under cursor in browser using `open_command` command (default
 - [x] Add open command in config
 - [x] Update README
 - [x] Fix `gf` command when cwd is not at the git root
+- [x] Go to exact line from diff (resolve line from diff)
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Allow to comment on multiple lines (visual mode)
-- [ ] Go to exact line from diff (resolve line from diff)
 - [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
 - [ ] use html_url of last comment in conversation
