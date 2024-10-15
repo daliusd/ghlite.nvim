@@ -41,6 +41,24 @@ Using lazyvim
   }
 ```
 
+## PR Review using ghlite.nvim
+
+- Run `:GHLitePRCheckout` and select PR you want to review
+
+- Run `:GHLitePRView` to get PR summary in case you have not seen it already.
+  Use default vim shortcut `gx` to open links in this view.
+
+- Run `:GHLitePRDiff` to see diff of PR so you could review it in single
+  window. Use `gf` in this buffer to go to specific file and line if you want
+  to see more context.
+
+- Run `:GHLitePRLoadComments` to review comment in the code. List of comments
+  is loaded to quickfix and shown in file as diagnostic messages.
+
+- Run `:GHLitePRAddComment` to comment in existing conversations or start the
+  new one. Alternatively you can use `:GHLitePROpenComment` to open comments in
+  browser.
+
 ## Commands
 
 ### GHLitePRCheckout
