@@ -10,6 +10,7 @@ M.setup = function(user_config)
 
   vim.api.nvim_create_user_command('GHLitePRCheckout', pr.checkout, {})
   vim.api.nvim_create_user_command('GHLitePRView', pr.load_pr_view, {})
+  vim.api.nvim_create_user_command('GHLitePRApprove', pr.approve_pr, {})
   vim.api.nvim_create_user_command('GHLitePRLoadComments', comments.load_comments, {})
   vim.api.nvim_create_user_command('GHLitePRDiff', diff.load_pr_diff, {})
   vim.api.nvim_create_user_command('GHLitePRAddComment', comments.comment_on_line, {})

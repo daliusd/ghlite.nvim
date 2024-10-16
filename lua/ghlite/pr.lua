@@ -40,6 +40,9 @@ function M.load_pr_view()
     pr_view[i] = line
   end
 
+  table.insert(pr_view, '')
+  table.insert(pr_view, 'Press Ctrl-A to approve PR')
+
   local buf = vim.api.nvim_create_buf(false, true)
 
   vim.bo[buf].buftype = 'nofile'
@@ -54,7 +57,15 @@ function M.load_pr_view()
   vim.bo[buf].readonly = true
   vim.bo[buf].modifiable = false
 
+  vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = M.approve_pr })
+
   vim.print('PR view loaded.')
+end
+
+function M.approve_pr()
+  vim.print('PR approve started...')
+  gh.approve_pr()
+  vim.print('PR approved.')
 end
 
 return M

@@ -59,6 +59,9 @@ Using lazyvim
   new one. Alternatively you can use `:GHLitePROpenComment` to open comments in
   browser.
 
+- Run `:GHLitePRApprove` to approve PR if everything is OK. Most probably you
+  will use `Ctrl-a` in diff or pr views.
+
 ## Commands
 
 ### GHLitePRCheckout
@@ -68,6 +71,14 @@ This command shows selection of active PRs and checkouts selected PR.
 ### GHLitePRView
 
 This command shows PR information (wrapper for `gh pr view`).
+
+Supported key bindings:
+
+* `Ctrl-a` to approve PR
+
+### GHLitePRApprove
+
+This command approves active PR.
 
 ### GHLitePRLoadComments
 
@@ -83,6 +94,8 @@ This command loads PR diff that you can review.
 Supported key bindings:
 
 * `gf` go to file from PR diff.
+
+* `Ctrl-a` to approve PR
 
 ### GHLitePRAddComment
 

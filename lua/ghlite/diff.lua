@@ -1,4 +1,5 @@
 local utils = require "ghlite.utils"
+local pr = require "ghlite.pr"
 local config = require "ghlite.config"
 
 local M = {}
@@ -60,6 +61,7 @@ function M.load_pr_diff()
   vim.bo[buf].modifiable = false
 
   vim.api.nvim_buf_set_keymap(buf, 'n', 'gf', '', { noremap = true, silent = true, callback = open_file_from_diff })
+  vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = pr.approve_pr })
 
   vim.print('PR diff loaded.')
 end

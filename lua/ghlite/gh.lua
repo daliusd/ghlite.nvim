@@ -159,4 +159,9 @@ function M.checkout_pr(number)
   return resp
 end
 
+function M.approve_pr()
+  local resp = utils.readp(f('gh pr review -a'))
+  return resp
+end
+
 return M
