@@ -17,7 +17,10 @@ function M.checkout()
     {
       prompt = 'Select PR to checkout:',
       format_item = function(pr)
-        return string.format('#%s: %s (%s)', pr.number, pr.title, pr.author.login)
+        local date = pr.createdAt:sub(1, 10)
+        local draft = pr.isDraft and ' Draft' or ''
+        local approved = pr.reviewDecision == 'APPROVED' and ' Approved' or ''
+        return string.format('#%s: %s (%s, %s%s%s)', pr.number, pr.title, pr.author.login, date, draft, approved)
       end,
     },
     function(pr)
