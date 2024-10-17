@@ -8,7 +8,7 @@ function M.checkout()
   local prs = gh.get_pr_list()
 
   if #prs == 0 then
-    vim.print('No PRs found')
+    vim.notify('No PRs found', vim.log.levels.WARN)
     return
   end
 
@@ -32,7 +32,7 @@ function M.checkout()
 end
 
 function M.load_pr_view()
-  vim.print('PR view loading started...')
+  vim.notify('PR view loading started...')
 
   local pr_view = utils.readp('gh pr view')
   for i, line in ipairs(pr_view) do
@@ -59,13 +59,13 @@ function M.load_pr_view()
 
   vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = M.approve_pr })
 
-  vim.print('PR view loaded.')
+  vim.notify('PR view loaded.')
 end
 
 function M.approve_pr()
-  vim.print('PR approve started...')
+  vim.notify('PR approve started...')
   gh.approve_pr()
-  vim.print('PR approved.')
+  vim.notify('PR approved.')
 end
 
 return M

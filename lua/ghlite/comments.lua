@@ -34,16 +34,17 @@ local function load_comments_to_quickfix_list()
     vim.fn.setqflist(qf_entries, 'r')
     vim.cmd("cfirst")
   else
-    vim.print('No GH comments loaded.')
+    vim.notify('No GH comments loaded.')
   end
 end
 
 M.load_comments = function()
-  vim.print('Comment loading started...')
+  vim.notify('Comment loading started...')
   M.comments = gh.load_comments()
   load_comments_to_quickfix_list()
 
   M.load_comments_on_current_buffer()
+  vim.notify('Comments loaded.')
 end
 
 M.load_comments_on_current_buffer = function()
@@ -87,7 +88,7 @@ end
 M.comment_on_line = function()
   local pr = utils.readp('gh pr view --json number -q .number')[1]
   if pr == nil then
-    vim.print('You are on master.')
+    vim.notify('You are on master.', vim.log.levels.WARN)
     return
   end
 
@@ -120,10 +121,10 @@ M.comment_on_line = function()
     local function reply(comment)
       local resp = gh.reply_to_comment(input, comment.id)
       if resp['errors'] == nil then
-        vim.print('Reply sent.')
+        vim.notify('Reply sent.')
         comment.content = comment.content .. gh.format_comment(gh.convert_comment(resp))
       else
-        vim.print('Failed to reply to comment.')
+        vim.notify('Failed to reply to comment.', vim.log.levels.WARN)
       end
     end
 
@@ -163,9 +164,9 @@ M.comment_on_line = function()
             table.insert(M.comments[current_filename], new_comment_group)
           end
 
-          vim.print('Comment sent.')
+          vim.notify('Comment sent.')
         else
-          vim.print('Failed to send comment.')
+          vim.notify('Failed to send comment.', vim.log.levels.WARN)
         end
       end
     end
@@ -180,7 +181,7 @@ end
 M.open_comment = function()
   local pr = utils.readp('gh pr view --json number -q .number')[1]
   if pr == nil then
-    vim.print('You are on master.')
+    vim.notify('You are on master.', vim.log.levels.WARN)
     return
   end
 
@@ -208,7 +209,7 @@ M.open_comment = function()
       end
     )
   else
-    vim.print('No comments found on this line.')
+    vim.notify('No comments found on this line.', vim.log.levels.WARN)
   end
 end
 

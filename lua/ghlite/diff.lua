@@ -41,7 +41,7 @@ local function open_file_from_diff()
 end
 
 function M.load_pr_diff()
-  vim.print('PR diff loading started...')
+  vim.notify('PR diff loading started...')
   local diff_content = utils.readp('gh pr diff')
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -63,7 +63,7 @@ function M.load_pr_diff()
   vim.api.nvim_buf_set_keymap(buf, 'n', 'gf', '', { noremap = true, silent = true, callback = open_file_from_diff })
   vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = pr.approve_pr })
 
-  vim.print('PR diff loaded.')
+  vim.notify('PR diff loaded.')
 end
 
 return M

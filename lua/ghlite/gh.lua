@@ -72,7 +72,7 @@ function M.load_comments()
 
   local pr = utils.readp('gh pr view --json number -q .number')[1]
   if pr == nil then
-    vim.print('You are on master.')
+    vim.notify('You are on master.', vim.log.levels.WARN)
     return {}
   end
   config.log("pr", pr)
