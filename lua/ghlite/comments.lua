@@ -83,16 +83,16 @@ M.load_comments_on_buffer = function(bufnr)
   end
 end
 
-M.find_possible_conversations = function(current_filename, current_line)
-  local possible_conversation = {}
+M.get_conversations = function(current_filename, current_line)
+  local conversations = {}
   if M.comments[current_filename] ~= nil then
     for _, comment in pairs(M.comments[current_filename]) do
       if current_line == comment.line then
-        table.insert(possible_conversation, comment)
+        table.insert(conversations, comment)
       end
     end
   end
-  return possible_conversation
+  return conversations
 end
 
 M.comment_on_line = function()
@@ -126,7 +126,7 @@ M.comment_on_line = function()
     end
     local input = table.concat(input_lines, "\n")
 
-    local possible_conversation = M.find_possible_conversations(current_filename, current_line)
+    local conversations = M.get_conversations(current_filename, current_line)
 
     local function reply(comment)
       local resp = gh.reply_to_comment(input, comment.id)
@@ -140,11 +140,11 @@ M.comment_on_line = function()
 
     vim.cmd('bwipeout')
 
-    if #possible_conversation == 1 then
-      reply(possible_conversation[1])
-    elseif #possible_conversation > 1 then
+    if #conversations == 1 then
+      reply(conversations[1])
+    elseif #conversations > 1 then
       vim.ui.select(
-        possible_conversation,
+        conversations,
         {
           prompt = 'Select comment to reply to:',
           format_item = function(comment)
@@ -199,13 +199,13 @@ M.open_comment = function()
   local current_filename = vim.api.nvim_buf_get_name(current_buf)
   local current_line = vim.api.nvim_win_get_cursor(0)[1]
 
-  local possible_conversation = M.find_possible_conversations(current_filename, current_line)
+  local conversations = M.get_conversations(current_filename, current_line)
 
-  if #possible_conversation == 1 then
-    utils.system({ config.s.open_command, possible_conversation[1].url })
-  elseif #possible_conversation > 1 then
+  if #conversations == 1 then
+    utils.system({ config.s.open_command, conversations[1].url })
+  elseif #conversations > 1 then
     vim.ui.select(
-      possible_conversation,
+      conversations,
       {
         prompt = 'Select conversation to open in browser:',
         format_item = function(comment)
