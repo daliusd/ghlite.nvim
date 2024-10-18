@@ -4,7 +4,9 @@ local config = require "ghlite.config"
 
 local M = {}
 
-function M.checkout()
+M.selected_PR = nil
+
+local function ui_selectPR(prompt, callback)
   local prs = gh.get_pr_list()
 
   if #prs == 0 then
@@ -15,7 +17,7 @@ function M.checkout()
   vim.ui.select(
     prs,
     {
-      prompt = 'Select PR to checkout:',
+      prompt = prompt,
       format_item = function(pr)
         local date = pr.createdAt:sub(1, 10)
         local draft = pr.isDraft and ' Draft' or ''
@@ -23,18 +25,50 @@ function M.checkout()
         return string.format('#%s: %s (%s, %s%s%s)', pr.number, pr.title, pr.author.login, date, draft, approved)
       end,
     },
-    function(pr)
-      if pr ~= nil then
-        gh.checkout_pr(pr.number)
-      end
-    end
+    callback
   )
 end
 
+function M.select()
+  ui_selectPR('Select PR:',
+    function(pr)
+      if pr ~= nil then
+        M.selected_PR = tostring(pr.number)
+        M.load_pr_view()
+      end
+    end)
+end
+
+function M.checkout()
+  ui_selectPR('Select PR to checkout:',
+    function(pr)
+      if pr ~= nil then
+        M.selected_PR = tostring(pr.number)
+        gh.checkout_pr(M.selected_PR)
+        M.load_pr_view()
+      end
+    end)
+end
+
+function M.get_selected_or_current_pr()
+  if M.selected_PR ~= nil then
+    return M.selected_PR
+  end
+  local current_pr = gh.get_current_pr()
+  if current_pr ~= nil then
+    return current_pr
+  end
+end
+
 function M.load_pr_view()
+  if M.selected_PR == nil then
+    vim.notify('No PR selected/checked out', vim.log.levels.WARN)
+    return
+  end
+
   vim.notify('PR view loading started...')
 
-  local pr_view = utils.readp('gh pr view')
+  local pr_view = utils.readp(string.format('gh pr view %s', M.selected_PR))
   for i, line in ipairs(pr_view) do
     line = line:match("^%s*(.-)%s*$")
     pr_view[i] = line
@@ -65,7 +99,7 @@ end
 
 function M.approve_pr()
   vim.notify('PR approve started...')
-  gh.approve_pr()
+  gh.approve_pr(M.selected_PR)
   vim.notify('PR approved.')
 end
 

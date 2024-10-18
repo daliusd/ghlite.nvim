@@ -1,10 +1,21 @@
 local utils = require "ghlite.utils"
 local pr = require "ghlite.pr"
 local config = require "ghlite.config"
+local gh = require "ghlite.gh"
 
 local M = {}
 
 local function open_file_from_diff()
+  local current_pr = gh.get_current_pr()
+  if current_pr == nil then
+    vim.notify('PR is not checked out', vim.log.levels.WARN)
+    return
+  end
+  if pr.selected_PR ~= nil and current_pr ~= pr.selected_PR then
+    vim.notify('Selected and Checked Out PRs mismatch.', vim.log.levels.ERROR)
+    return
+  end
+
   local buf = vim.api.nvim_get_current_buf()
   local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
 
@@ -41,8 +52,14 @@ local function open_file_from_diff()
 end
 
 function M.load_pr_diff()
+  local pr_number = pr.get_selected_or_current_pr()
+  if pr_number == nil then
+    vim.notify('No PR selected/checked out', vim.log.levels.WARN)
+    return
+  end
+
   vim.notify('PR diff loading started...')
-  local diff_content = utils.readp('gh pr diff')
+  local diff_content = gh.get_pr_diff(pr.selected_PR)
 
   local buf = vim.api.nvim_create_buf(false, true)
 

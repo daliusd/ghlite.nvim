@@ -66,16 +66,13 @@ local function group_comments(comments)
   return result
 end
 
-function M.load_comments()
+function M.get_current_pr()
+  return utils.readp('gh pr view --json number -q .number')[1]
+end
+
+function M.load_comments(pr)
   local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   config.log("repo", repo)
-
-  local pr = utils.readp('gh pr view --json number -q .number')[1]
-  if pr == nil then
-    vim.notify('You are on master.', vim.log.levels.WARN)
-    return {}
-  end
-  config.log("pr", pr)
 
   local comments = json.parse(utils.readp(f("gh api repos/%s/pulls/%d/comments", repo, pr)))
   config.log("comments", comments)
@@ -97,7 +94,7 @@ end
 
 function M.reply_to_comment(body, reply_to)
   local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  local pr = M.get_current_pr()
 
   local request = {
     'gh',
@@ -120,7 +117,7 @@ end
 
 function M.new_comment(body, path, line)
   local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  local pr = M.get_current_pr()
   local commit_id = utils.readp("git rev-parse HEAD")[1]
 
   local request = {
@@ -159,9 +156,13 @@ function M.checkout_pr(number)
   return resp
 end
 
-function M.approve_pr()
-  local resp = utils.readp(f('gh pr review -a'))
+function M.approve_pr(number)
+  local resp = utils.readp(f('gh pr review %s -a', number))
   return resp
+end
+
+function M.get_pr_diff(number)
+  return utils.readp(f('gh pr diff %s', number))
 end
 
 return M

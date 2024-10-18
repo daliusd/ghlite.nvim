@@ -45,6 +45,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       })
     end,
     keys = {
+      { '<leader>us', ':GHLitePRSelect<cr>',       silent = true },
       { '<leader>uo', ':GHLitePRCheckout<cr>',     silent = true },
       { '<leader>uv', ':GHLitePRView<cr>',         silent = true },
       { '<leader>uu', ':GHLitePRLoadComments<cr>', silent = true },
@@ -57,10 +58,9 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
 
 ## PR Review using ghlite.nvim
 
-- Run `:GHLitePRCheckout` and select PR you want to review
-
-- Run `:GHLitePRView` to get PR summary in case you have not seen it already.
-  Use default vim shortcut `gx` to open links in this view.
+- Run `:GHLitePRSelect` or `:GHLitePRCheckout` and select PR you want to
+  review. PR view will open. You can open `:GHLitePRView` anytime later to
+  refresh/reopen PR view.
 
 - Run `:GHLitePRDiff` to see diff of PR so you could review it in single
   window. Use `gf` in this buffer to go to specific file and line if you want
@@ -78,6 +78,11 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
 
 ## Commands
 
+### GHLitePRSelect
+
+This command shows selection of active PRs and selects PR for other operations.
+You can use this command if you want to review PR without checking it out.
+
 ### GHLitePRCheckout
 
 This command shows selection of active PRs and checkouts selected PR.
@@ -90,6 +95,9 @@ Supported key bindings:
 
 * `Ctrl-a` to approve PR
 
+Note: You can use default vim shortcuts as well, like `gx` to open links in
+this view.
+
 ### GHLitePRApprove
 
 This command approves active PR.
@@ -101,9 +109,14 @@ PR comments are not loaded. Comments are loaded to quickfix list and to buffer
 diagnostics on buffer load. Navigate quickfix list using `cnext` and `cprev`
 (assumption here that you are using quickfix list in general).
 
+NOTE: You must checkout git branch related to PR either using
+`:GHLitePRCheckout` or using other tools.
+
 ### GHLitePRDiff
 
-This command loads PR diff that you can review.
+This command loads PR diff that you can review. This command shows diff of
+selected PR. If no PR is selected then PR number is resolved from git branch
+associated with PR.
 
 Supported key bindings:
 
@@ -153,7 +166,7 @@ Opens comment under cursor in browser using `open_command` command (default
 - [x] Update README
 - [x] Fix `gf` command when cwd is not at the git root
 - [x] Go to exact line from diff (resolve line from diff)
-- [ ] Allow to select PR without checking it out: quite some functionality
+- [x] Allow to select PR without checking it out: quite some functionality
   should work without checking out
 - [ ] Support comments in diff view
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
@@ -163,3 +176,4 @@ Opens comment under cursor in browser using `open_command` command (default
 - [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
 - [ ] use html_url of last comment in conversation
 - [ ] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)
+- [ ] Fix messages with key bindings with override keys

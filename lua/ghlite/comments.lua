@@ -1,6 +1,7 @@
 local gh = require "ghlite.gh"
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
+local pr = require "ghlite.pr"
 
 local M = {}
 
@@ -39,8 +40,17 @@ local function load_comments_to_quickfix_list()
 end
 
 M.load_comments = function()
+  local current_pr = gh.get_current_pr()
+  if current_pr == nil then
+    vim.notify('You are on master.', vim.log.levels.WARN)
+    return {}
+  end
+  if pr.selected_PR ~= nil and current_pr ~= pr.selected_PR then
+    vim.notify('Selected and Checked Out PRs mismatch. Comments are loaded for checked out PR.', vim.log.levels.WARN)
+  end
+
   vim.notify('Comment loading started...')
-  M.comments = gh.load_comments()
+  M.comments = gh.load_comments(current_pr)
   load_comments_to_quickfix_list()
 
   M.load_comments_on_current_buffer()
@@ -86,7 +96,7 @@ M.find_possible_conversations = function(current_filename, current_line)
 end
 
 M.comment_on_line = function()
-  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  local pr = gh.get_current_pr()
   if pr == nil then
     vim.notify('You are on master.', vim.log.levels.WARN)
     return
@@ -179,7 +189,7 @@ M.comment_on_line = function()
 end
 
 M.open_comment = function()
-  local pr = utils.readp('gh pr view --json number -q .number')[1]
+  local pr = gh.get_current_pr()
   if pr == nil then
     vim.notify('You are on master.', vim.log.levels.WARN)
     return
