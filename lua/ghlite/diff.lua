@@ -52,16 +52,18 @@ function M.load_pr_diff()
 
   vim.bo[buf].filetype = 'diff'
 
-  if config.diff_split then
-    vim.api.nvim_command(config.diff_split)
+  if config.s.diff_split then
+    vim.api.nvim_command(config.s.diff_split)
   end
   vim.api.nvim_set_current_buf(buf)
 
   vim.bo[buf].readonly = true
   vim.bo[buf].modifiable = false
 
-  vim.api.nvim_buf_set_keymap(buf, 'n', 'gf', '', { noremap = true, silent = true, callback = open_file_from_diff })
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = pr.approve_pr })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file, '',
+    { noremap = true, silent = true, callback = open_file_from_diff })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
+    { noremap = true, silent = true, callback = pr.approve_pr })
 
   vim.notify('PR diff loaded.')
 end

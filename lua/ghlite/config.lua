@@ -1,31 +1,28 @@
-local M = {}
+local M = {
+}
 
-M.debug = false
-M.view_split = 'vsplit'
-M.diff_split = 'vsplit'
-M.comment_split = 'split'
-M.open_command = 'open'
+M.s = {
+  debug = false,
+  view_split = 'vsplit',
+  diff_split = 'vsplit',
+  comment_split = 'split',
+  open_command = 'open',
+  keymaps = {
+    diff = {
+      open_file = 'gf',
+      approve = '<C-A>',
+    },
+    comment = {
+      send_comment = '<C-CR>'
+    },
+    pr = {
+      approve = '<C-A>',
+    },
+  },
+}
 
 function M.setup(config)
-  if config.debug ~= nil then
-    M.debug = config.debug
-  end
-
-  if config.view_split ~= nil then
-    M.view_split = config.view_split
-  end
-
-  if config.diff_split ~= nil then
-    M.diff_split = config.diff_split
-  end
-
-  if config.comment_split ~= nil then
-    M.comment_split = config.comment_split
-  end
-
-  if config.open_command ~= nil then
-    M.open_command = config.open_command
-  end
+  M.s = vim.tbl_deep_extend("force", {}, M.s, config)
 end
 
 function M.log(key, message)

@@ -101,8 +101,8 @@ M.comment_on_line = function()
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].filetype = 'markdown'
 
-  if config.comment_split then
-    vim.api.nvim_command(config.comment_split)
+  if config.s.comment_split then
+    vim.api.nvim_command(config.s.comment_split)
   end
   vim.api.nvim_set_current_buf(buf)
   local prompt = "<!-- Type your comment and press Ctrl + Enter: -->"
@@ -172,9 +172,9 @@ M.comment_on_line = function()
     end
   end
 
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<C-CR>', '',
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
     { noremap = true, silent = true, callback = capture_input_and_close })
-  vim.api.nvim_buf_set_keymap(buf, 'i', '<C-CR>', '',
+  vim.api.nvim_buf_set_keymap(buf, 'i', config.s.keymaps.comment.send_comment, '',
     { noremap = true, silent = true, callback = capture_input_and_close })
 end
 
@@ -192,7 +192,7 @@ M.open_comment = function()
   local possible_conversation = M.find_possible_conversations(current_filename, current_line)
 
   if #possible_conversation == 1 then
-    utils.readpt({ config.open_command, possible_conversation[1].url })
+    utils.readpt({ config.s.open_command, possible_conversation[1].url })
   elseif #possible_conversation > 1 then
     vim.ui.select(
       possible_conversation,

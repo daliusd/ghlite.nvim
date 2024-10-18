@@ -16,7 +16,9 @@ instead of replacing it like other plugins do.
 
 ## Installation
 
-Using lazyvim
+Using lazyvim.
+
+NOTE: default config here. You can skip all the settings if you are OK with defaults.
 
 ```lua
   {
@@ -28,6 +30,18 @@ Using lazyvim
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer
         comment_split = 'split', -- set to empty string '' to open in active buffer
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
+        keymaps = { -- override default keymaps with the ones you prefer
+          diff = {
+            open_file = 'gf',
+            approve = '<C-A>',
+          },
+          comment = {
+            send_comment = '<C-CR>'
+          },
+          pr = {
+            approve = '<C-A>',
+          },
+        },
       })
     end,
     keys = {
@@ -139,9 +153,13 @@ Opens comment under cursor in browser using `open_command` command (default
 - [x] Update README
 - [x] Fix `gf` command when cwd is not at the git root
 - [x] Go to exact line from diff (resolve line from diff)
+- [ ] Allow to select PR without checking it out: quite some functionality
+  should work without checking out
+- [ ] Support comments in diff view
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Allow to comment on multiple lines (visual mode)
 - [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
 - [ ] use html_url of last comment in conversation
+- [ ] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)

@@ -49,15 +49,16 @@ function M.load_pr_view()
 
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, pr_view)
 
-  if config.view_split then
-    vim.api.nvim_command(config.view_split)
+  if config.s.view_split then
+    vim.api.nvim_command(config.s.view_split)
   end
   vim.api.nvim_set_current_buf(buf)
 
   vim.bo[buf].readonly = true
   vim.bo[buf].modifiable = false
 
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<c-a>', '', { noremap = true, silent = true, callback = M.approve_pr })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
+    { noremap = true, silent = true, callback = M.approve_pr })
 
   vim.notify('PR view loaded.')
 end
