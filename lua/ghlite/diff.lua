@@ -59,7 +59,7 @@ function M.load_pr_diff()
   end
 
   vim.notify('PR diff loading started...')
-  local diff_content = gh.get_pr_diff(pr.selected_PR)
+  local diff_content = gh.get_pr_diff(pr_number)
 
   local buf = vim.api.nvim_create_buf(false, true)
 

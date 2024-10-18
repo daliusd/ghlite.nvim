@@ -61,14 +61,15 @@ function M.get_selected_or_current_pr()
 end
 
 function M.load_pr_view()
-  if M.selected_PR == nil then
+  local pr_number = M.get_selected_or_current_pr()
+  if pr_number == nil then
     vim.notify('No PR selected/checked out', vim.log.levels.WARN)
     return
   end
 
   vim.notify('PR view loading started...')
 
-  local pr_view = utils.system_str(string.format('gh pr view %s', M.selected_PR))
+  local pr_view = utils.system_str(string.format('gh pr view %s', pr_number))
   for i, line in ipairs(pr_view) do
     line = line:match("^%s*(.-)%s*$")
     pr_view[i] = line
