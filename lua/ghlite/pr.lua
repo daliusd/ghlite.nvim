@@ -68,7 +68,7 @@ function M.load_pr_view()
 
   vim.notify('PR view loading started...')
 
-  local pr_view = utils.readp(string.format('gh pr view %s', M.selected_PR))
+  local pr_view = utils.system_str(string.format('gh pr view %s', M.selected_PR))
   for i, line in ipairs(pr_view) do
     line = line:match("^%s*(.-)%s*$")
     pr_view[i] = line

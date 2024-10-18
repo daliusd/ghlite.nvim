@@ -202,7 +202,7 @@ M.open_comment = function()
   local possible_conversation = M.find_possible_conversations(current_filename, current_line)
 
   if #possible_conversation == 1 then
-    utils.readpt({ config.s.open_command, possible_conversation[1].url })
+    utils.system({ config.s.open_command, possible_conversation[1].url })
   elseif #possible_conversation > 1 then
     vim.ui.select(
       possible_conversation,
@@ -214,7 +214,7 @@ M.open_comment = function()
       },
       function(comment)
         if comment ~= nil then
-          utils.readpt({ config.s.open_command, comment.url })
+          utils.system({ config.s.open_command, comment.url })
         end
       end
     )

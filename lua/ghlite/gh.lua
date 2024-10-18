@@ -67,14 +67,14 @@ local function group_comments(comments)
 end
 
 function M.get_current_pr()
-  return utils.readp('gh pr view --json number -q .number')[1]
+  return utils.system_str('gh pr view --json number -q .number')[1]
 end
 
 function M.load_comments(pr)
-  local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
+  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   config.log("repo", repo)
 
-  local comments = json.parse(utils.readp(f("gh api repos/%s/pulls/%d/comments", repo, pr)))
+  local comments = json.parse(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr)))
   config.log("comments", comments)
 
   local function is_valid_comment(comment)
@@ -93,7 +93,7 @@ function M.load_comments(pr)
 end
 
 function M.reply_to_comment(body, reply_to)
-  local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
+  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   local pr = M.get_current_pr()
 
   local request = {
@@ -109,16 +109,16 @@ function M.reply_to_comment(body, reply_to)
   }
   config.log('reply_to_comment request', request)
 
-  local resp = json.parse(utils.readpt(request))
+  local resp = json.parse(utils.system(request))
 
   config.log("reply_to_comment resp", resp)
   return resp
 end
 
 function M.new_comment(body, path, line)
-  local repo = utils.readp('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
+  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   local pr = M.get_current_pr()
-  local commit_id = utils.readp("git rev-parse HEAD")[1]
+  local commit_id = utils.system_str("git rev-parse HEAD")[1]
 
   local request = {
     'gh',
@@ -139,30 +139,30 @@ function M.new_comment(body, path, line)
   }
   config.log('new_comment request', request)
 
-  local resp = json.parse(utils.readpt(request))
+  local resp = json.parse(utils.system(request))
 
   config.log("new_comment resp", resp)
   return resp
 end
 
 function M.get_pr_list()
-  local resp = json.parse(utils.readp('gh pr list --json number,title,author,createdAt,isDraft,reviewDecision'))
+  local resp = json.parse(utils.system_str('gh pr list --json number,title,author,createdAt,isDraft,reviewDecision'))
 
   return resp
 end
 
 function M.checkout_pr(number)
-  local resp = utils.readp(f('gh pr checkout %s', number))
+  local resp = utils.system_str(f('gh pr checkout %s', number))
   return resp
 end
 
 function M.approve_pr(number)
-  local resp = utils.readp(f('gh pr review %s -a', number))
+  local resp = utils.system_str(f('gh pr review %s -a', number))
   return resp
 end
 
 function M.get_pr_diff(number)
-  return utils.readp(f('gh pr diff %s', number))
+  return utils.system_str(f('gh pr diff %s', number))
 end
 
 return M
