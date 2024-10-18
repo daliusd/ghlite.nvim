@@ -204,7 +204,7 @@ M.open_comment = function()
       },
       function(comment)
         if comment ~= nil then
-          utils.readpt({ 'open', comment.url })
+          utils.readpt({ config.s.open_command, comment.url })
         end
       end
     )
