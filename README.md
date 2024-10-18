@@ -60,7 +60,9 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
 
 - Run `:GHLitePRSelect` or `:GHLitePRCheckout` and select PR you want to
   review. PR view will open. You can open `:GHLitePRView` anytime later to
-  refresh/reopen PR view.
+  refresh/reopen PR view. You can skip this step if you have locally branch
+  checked out that is related to PR. In that case plugin will resolve PR
+  number.
 
 - Run `:GHLitePRDiff` to see diff of PR so you could review it in single
   window. Use `gf` in this buffer to go to specific file and line if you want
@@ -120,7 +122,9 @@ associated with PR.
 
 Supported key bindings:
 
-* `gf` go to file from PR diff.
+* `gf` go to file from PR diff. `gf` command will not work if you use
+  `:GHLitePRSelect` command and branch is not checked out or you have different
+  branch checked out.
 
 * `Ctrl-a` to approve PR
 
