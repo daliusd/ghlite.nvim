@@ -2,53 +2,61 @@ local utils = require "ghlite.utils"
 local pr = require "ghlite.pr"
 local config = require "ghlite.config"
 local gh = require "ghlite.gh"
+local comments = require "ghlite.comments"
+local state = require "ghlite.state"
 
 local M = {}
 
-local function open_file_from_diff()
-  local current_pr = gh.get_current_pr()
-  if current_pr == nil then
-    vim.notify('PR is not checked out', vim.log.levels.WARN)
-    return
+local function construct_mappings(diff_content)
+  local git_root = utils.get_git_root()
+  local current_filename = nil
+  local current_line_in_file = 0
+
+  for line_num = 1, #diff_content do
+    local line = diff_content[line_num]
+
+    if line:match("^%-%-%-") then
+      do end -- this shouldn't become line
+    elseif line:match("^+++") then
+      current_filename = line:match("^+++%s*(.+)")
+      current_filename = git_root .. '/' .. current_filename:gsub("^b/", "")
+    elseif line:sub(1, 2) == '@@' then
+      local pos = vim.split(line, ' ')[3]
+      local lineno = tonumber(vim.split(pos, ',')[1])
+      if lineno then
+        current_line_in_file = lineno
+      end
+    elseif current_filename then
+      if state.filename_line_to_diff_line[current_filename] == nil then
+        state.filename_line_to_diff_line[current_filename] = {}
+      end
+      state.filename_line_to_diff_line[current_filename][current_line_in_file] = line_num
+
+      state.diff_line_to_filename_line[line_num] = { current_filename, current_line_in_file }
+      if line:sub(1, 1) ~= '-' then
+        current_line_in_file = current_line_in_file + 1
+      end
+    end
   end
-  if pr.selected_PR ~= nil and current_pr ~= pr.selected_PR then
-    vim.notify('Selected and Checked Out PRs mismatch.', vim.log.levels.ERROR)
-    return
+end
+
+local function open_file_from_diff()
+  local current_branch = utils.get_current_git_branch_name()
+  if state.selected_headRefName ~= current_branch then
+    local current_pr = pr.approve_and_chechkout_selected_pr()
+    if current_pr == nil then
+      vim.notify('No PR to work with.', vim.log.levels.WARN)
+      return
+    end
   end
 
   local buf = vim.api.nvim_get_current_buf()
   local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
 
-  local line_in_file = 0
-  local line_in_file_found = false
-  for line_num = cursor_line, 1, -1 do
-    local line = vim.api.nvim_buf_get_lines(buf, line_num - 1, line_num, false)[1]
-
-    if not line_in_file_found then
-      if line:sub(1, 2) == '@@' then
-        local pos = vim.split(line, ' ')[3]
-        line_in_file = tonumber(vim.split(pos, ',')[1]) + line_in_file - 1
-        line_in_file_found = true
-      elseif line:sub(1, 1) ~= '-' then
-        line_in_file = line_in_file + 1
-      end
-    end
-
-    local file_path
-    if line:match("^%-%-%-") then
-      file_path = line:match("^%-%-%-%s*(.+)")
-    elseif line:match("^+++") then
-      file_path = line:match("^+++%s*(.+)")
-    end
-
-    if file_path then
-      local git_root = utils.get_git_root()
-      file_path = git_root .. '/' .. file_path:gsub("^a/", ""):gsub("^b/", "")
-      vim.cmd("edit " .. file_path)
-      vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
-      return
-    end
-  end
+  local file_path = state.diff_line_to_filename_line[cursor_line][1]
+  local line_in_file = state.diff_line_to_filename_line[cursor_line][2]
+  vim.cmd("edit " .. file_path)
+  vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
 end
 
 function M.load_pr_diff()
@@ -60,8 +68,10 @@ function M.load_pr_diff()
 
   vim.notify('PR diff loading started...')
   local diff_content = gh.get_pr_diff(pr_number)
+  construct_mappings(diff_content)
 
   local buf = vim.api.nvim_create_buf(false, true)
+  state.diff_buffer_id = buf
 
   vim.bo[buf].buftype = 'nofile'
 
@@ -83,6 +93,10 @@ function M.load_pr_diff()
     { noremap = true, silent = true, callback = pr.approve_pr })
 
   vim.notify('PR diff loaded.')
+  vim.notify('Comments on diff load started...')
+  comments.load_comments_only(pr_number)
+  comments.load_comments_on_diff_buffer(buf)
+  vim.notify('Comments on diff loaded.')
 end
 
 return M

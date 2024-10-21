@@ -58,25 +58,54 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
 
 ## PR Review using ghlite.nvim
 
+### Quick PR review
+
+If you want to make quick PR review without checking out PR code to your repo
+you can do it this way:
+
+- Run `:GHLitePRSelect` and select PR you want to review. PR view will open.
+  You can open `:GHLitePRView` anytime later to refresh/reopen PR view.
+
+- Run `:GHLitePRDiff` to see diff of PR so you could review it in single
+  window. Comments that can be displayed in diff view are loaded as well as
+  diagnostics. Navigate comments using `vim.diagnostic.jump` or
+  `vim.diagnostic.goto_\*` functions (latter is for older neovim versions) or
+  keys you have mapped to those functions.
+
+- Run `:GHLitePRAddComment` to comment in existing conversations or start the
+  new one directly in diff view. Alternatively you can use
+  `:GHLitePROpenComment` to open comments in browser.
+
+- Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
+  `Ctrl-a` in diff and pr views.
+
+### Thorough PR review
+
+However it might be that you want to make thorough PR review by looking not
+only at diff, but at surrounding code as well.
+
 - Run `:GHLitePRSelect` or `:GHLitePRCheckout` and select PR you want to
   review. PR view will open. You can open `:GHLitePRView` anytime later to
   refresh/reopen PR view. You can skip this step if you have locally branch
   checked out that is related to PR. In that case plugin will resolve PR
-  number.
+  number from git branch.
 
 - Run `:GHLitePRDiff` to see diff of PR so you could review it in single
   window. Use `gf` in this buffer to go to specific file and line if you want
-  to see more context.
+  to see more context. If you have run `:GHLitePRSelect` initially and PR
+  branch is not checked out plugin will ask if you want to checkout branch.
+  Comments as diagnostics will be show in opened files as well.
 
-- Run `:GHLitePRLoadComments` to review comment in the code. List of comments
-  is loaded to quickfix and shown in file as diagnostic messages.
+- Run `:GHLitePRLoadComments` to review all comments in the code if diff view
+  is not enough. List of comments is loaded to quickfix and shown in file as
+  diagnostic messages.
 
 - Run `:GHLitePRAddComment` to comment in existing conversations or start the
   new one. Alternatively you can use `:GHLitePROpenComment` to open comments in
   browser.
 
-- Run `:GHLitePRApprove` to approve PR if everything is OK. Most probably you
-  will use `Ctrl-a` in diff or pr views.
+- Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
+  `Ctrl-a` in diff and pr views.
 
 ## Commands
 
@@ -145,39 +174,3 @@ Supported key bindings:
 
 Opens comment under cursor in browser using `open_command` command (default
 `open`).
-
-## TODO
-
-- [x] Investigate if I can use quickfix list and show comments on hover
-- [x] Show virtual text or diagnostics for comments
-- [x] Keep file paths relative to git root
-- [x] Show diff hunk with comments
-- [x] Show PR diff
-- [x] Go to file from PR diff
-- [x] Allow to reply in existing threads
-- [x] Allow to comment directly in the code
-- [x] Handle error on reply/comment
-- [x] Update quickfix list on reply/comment
-- [x] ~~Use plenary Jobs~~ use vim.system
-- [x] Sort comments by filename and line number
-- [x] ~~Use temp files instead of nofile for comment and diff window~~ There is no value in this.
-- [x] Select comment on reply if there are multiple comments on the same line
-- [x] nil PR
-- [x] Open comment thread in browser
-- [x] Checkout PR
-- [x] Allow to configure how diff and comment windows are shown (split, vsplit or in the same window)
-- [x] Add open command in config
-- [x] Update README
-- [x] Fix `gf` command when cwd is not at the git root
-- [x] Go to exact line from diff (resolve line from diff)
-- [x] Allow to select PR without checking it out: quite some functionality
-  should work without checking out
-- [ ] Support comments in diff view
-- [ ] Keep old comments information in group (addition, update and deletion will be smoother)
-- [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
-- [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
-- [ ] Allow to comment on multiple lines (visual mode)
-- [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
-- [ ] use html_url of last comment in conversation
-- [ ] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)
-- [ ] Fix messages with key bindings with override keys

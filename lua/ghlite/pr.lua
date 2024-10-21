@@ -1,10 +1,9 @@
 local gh = require "ghlite.gh"
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
+local state = require "ghlite.state"
 
 local M = {}
-
-M.selected_PR = nil
 
 local function ui_selectPR(prompt, callback)
   local prs = gh.get_pr_list()
@@ -33,7 +32,8 @@ function M.select()
   ui_selectPR('Select PR:',
     function(pr)
       if pr ~= nil then
-        M.selected_PR = tostring(pr.number)
+        state.selected_PR = tostring(pr.number)
+        state.selected_headRefName = pr.headRefName
         M.load_pr_view()
       end
     end)
@@ -43,21 +43,47 @@ function M.checkout()
   ui_selectPR('Select PR to checkout:',
     function(pr)
       if pr ~= nil then
-        M.selected_PR = tostring(pr.number)
-        gh.checkout_pr(M.selected_PR)
+        state.selected_PR = tostring(pr.number)
+        state.selected_headRefName = pr.headRefName
+        gh.checkout_pr(state.selected_PR)
         M.load_pr_view()
       end
     end)
 end
 
 function M.get_selected_or_current_pr()
-  if M.selected_PR ~= nil then
-    return M.selected_PR
+  if state.selected_PR ~= nil then
+    return state.selected_PR
   end
   local current_pr = gh.get_current_pr()
   if current_pr ~= nil then
     return current_pr
   end
+end
+
+function M.approve_and_chechkout_selected_pr()
+  local choice = vim.fn.confirm("Do you want to check out selected PR?", "&Yes\n&No", 1)
+
+  if choice == 1 then
+    vim.notify(string.format('Checking out PR #%s...', state.selected_PR))
+    gh.checkout_pr(state.selected_PR)
+    vim.notify('PR checked out.')
+    return state.selected_PR
+  end
+end
+
+function M.get_working_pr()
+  local current_pr = gh.get_current_pr()
+  if state.selected_PR == nil and current_pr ~= nil then
+    return current_pr
+  elseif state.selected_PR ~= nil and state.selected_PR ~= current_pr then
+    local checked_out_pr = M.approve_and_chechkout_selected_pr()
+    return checked_out_pr
+  elseif state.selected_PR ~= nil and state.selected_PR == current_pr then
+    return current_pr
+  end
+
+  return nil
 end
 
 function M.load_pr_view()
@@ -100,7 +126,7 @@ end
 
 function M.approve_pr()
   vim.notify('PR approve started...')
-  gh.approve_pr(M.selected_PR)
+  gh.approve_pr(state.selected_PR)
   vim.notify('PR approved.')
 end
 

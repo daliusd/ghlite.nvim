@@ -1,23 +1,22 @@
 local gh = require "ghlite.gh"
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
+local state = require "ghlite.state"
 local pr = require "ghlite.pr"
 
 local M = {}
-
-M.comments = {}
 
 local function load_comments_to_quickfix_list()
   local qf_entries = {}
 
   local filenames = {}
-  for fn in pairs(M.comments) do
+  for fn in pairs(state.comments_list) do
     table.insert(filenames, fn)
   end
   table.sort(filenames)
 
   for _, filename in pairs(filenames) do
-    local comments_in_file = M.comments[filename]
+    local comments_in_file = state.comments_list[filename]
 
     table.sort(comments_in_file, function(a, b)
       return a.line < b.line
@@ -40,21 +39,23 @@ local function load_comments_to_quickfix_list()
 end
 
 M.load_comments = function()
-  local current_pr = gh.get_current_pr()
-  if current_pr == nil then
-    vim.notify('You are on master.', vim.log.levels.WARN)
-    return {}
-  end
-  if pr.selected_PR ~= nil and current_pr ~= pr.selected_PR then
-    vim.notify('Selected and Checked Out PRs mismatch. Comments are loaded for checked out PR.', vim.log.levels.WARN)
+  local working_pr = pr.get_working_pr()
+  if working_pr == nil then
+    vim.notify('No PR to work with.', vim.log.levels.WARN)
+    return
   end
 
   vim.notify('Comment loading started...')
-  M.comments = gh.load_comments(current_pr)
+  state.comments_list = gh.load_comments(working_pr)
+
   load_comments_to_quickfix_list()
 
   M.load_comments_on_current_buffer()
   vim.notify('Comments loaded.')
+end
+
+M.load_comments_only = function(pr_to_load)
+  state.comments_list = gh.load_comments(pr_to_load)
 end
 
 M.load_comments_on_current_buffer = function()
@@ -63,12 +64,16 @@ M.load_comments_on_current_buffer = function()
 end
 
 M.load_comments_on_buffer = function(bufnr)
+  if state.selected_headRefName ~= utils.get_current_git_branch_name() then
+    return
+  end
+
   local filename = vim.api.nvim_buf_get_name(bufnr)
 
   config.log('load_comments_on_buffer filename', filename)
-  if M.comments[filename] ~= nil then
+  if state.comments_list[filename] ~= nil then
     local diagnostics = {}
-    for _, comment in pairs(M.comments[filename]) do
+    for _, comment in pairs(state.comments_list[filename]) do
       config.log('comment to diagnostics', comment)
       table.insert(diagnostics, {
         lnum = comment.line - 1,
@@ -83,10 +88,35 @@ M.load_comments_on_buffer = function(bufnr)
   end
 end
 
+M.load_comments_on_diff_buffer = function(bufnr)
+  config.log('load_comments_on_diff_buffer')
+
+  local diagnostics = {}
+
+  for filename, comments in pairs(state.comments_list) do
+    if state.filename_line_to_diff_line[filename] then
+      for _, comment in pairs(comments) do
+        local diff_line = state.filename_line_to_diff_line[filename][comment.line]
+        if diff_line then
+          table.insert(diagnostics, {
+            lnum = diff_line - 1,
+            col = 0,
+            message = comment.content,
+            severity = vim.diagnostic.severity.INFO,
+            source = "GHLite",
+          })
+        end
+      end
+    end
+  end
+
+  vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteDiffNamespace"), bufnr, diagnostics, {})
+end
+
 M.get_conversations = function(current_filename, current_line)
   local conversations = {}
-  if M.comments[current_filename] ~= nil then
-    for _, comment in pairs(M.comments[current_filename]) do
+  if state.comments_list[current_filename] ~= nil then
+    for _, comment in pairs(state.comments_list[current_filename]) do
       if current_line == comment.line then
         table.insert(conversations, comment)
       end
@@ -95,16 +125,31 @@ M.get_conversations = function(current_filename, current_line)
   return conversations
 end
 
+local function get_current_filename_and_line()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_line = vim.api.nvim_win_get_cursor(0)[1]
+  local current_filename = vim.api.nvim_buf_get_name(current_buf)
+
+  if current_buf == state.diff_buffer_id then
+    local info = state.diff_line_to_filename_line[current_line]
+    current_filename = info[1]
+    current_line = info[2]
+  else
+    local pr = gh.get_current_pr()
+    if pr == nil then
+      return nil, nil
+    end
+  end
+
+  return current_filename, current_line
+end
+
 M.comment_on_line = function()
-  local pr = gh.get_current_pr()
-  if pr == nil then
+  local current_filename, current_line = get_current_filename_and_line()
+  if current_filename == nil then
     vim.notify('You are on master.', vim.log.levels.WARN)
     return
   end
-
-  local current_buf = vim.api.nvim_get_current_buf()
-  local current_filename = vim.api.nvim_buf_get_name(current_buf)
-  local current_line = vim.api.nvim_win_get_cursor(0)[1]
 
   local buf = vim.api.nvim_create_buf(false, true)
 
@@ -168,10 +213,10 @@ M.comment_on_line = function()
             url = resp.html_url,
             content = gh.format_comment(gh.convert_comment(resp)),
           }
-          if M.comments[current_filename] == nil then
-            M.comments[current_filename] = { new_comment_group }
+          if state.comments_list[current_filename] == nil then
+            state.comments_list[current_filename] = { new_comment_group }
           else
-            table.insert(M.comments[current_filename], new_comment_group)
+            table.insert(state.comments_list[current_filename], new_comment_group)
           end
 
           vim.notify('Comment sent.')
@@ -189,15 +234,11 @@ M.comment_on_line = function()
 end
 
 M.open_comment = function()
-  local pr = gh.get_current_pr()
-  if pr == nil then
+  local current_filename, current_line = get_current_filename_and_line()
+  if current_filename == nil then
     vim.notify('You are on master.', vim.log.levels.WARN)
     return
   end
-
-  local current_buf = vim.api.nvim_get_current_buf()
-  local current_filename = vim.api.nvim_buf_get_name(current_buf)
-  local current_line = vim.api.nvim_win_get_cursor(0)[1]
 
   local conversations = M.get_conversations(current_filename, current_line)
 

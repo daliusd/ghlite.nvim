@@ -1,5 +1,6 @@
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
+local state = require "ghlite.state"
 
 local f = string.format
 local json = {
@@ -146,7 +147,8 @@ function M.new_comment(body, path, line)
 end
 
 function M.get_pr_list()
-  local resp = json.parse(utils.system_str('gh pr list --json number,title,author,createdAt,isDraft,reviewDecision'))
+  local resp = json.parse(utils.system_str(
+    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName'))
 
   return resp
 end

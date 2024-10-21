@@ -29,4 +29,8 @@ function M.get_git_root()
   return M.system_str("git rev-parse --show-toplevel")[1]
 end
 
+function M.get_current_git_branch_name()
+  return M.system_str('git branch --show-current')[1]
+end
+
 return M
