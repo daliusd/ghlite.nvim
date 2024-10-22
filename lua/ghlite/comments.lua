@@ -160,7 +160,7 @@ M.comment_on_line = function()
     vim.api.nvim_command(config.s.comment_split)
   end
   vim.api.nvim_set_current_buf(buf)
-  local prompt = "<!-- Type your comment and press Ctrl + Enter: -->"
+  local prompt = "<!-- Type your comment and press " .. config.s.keymaps.comment.send_comment .. ": -->"
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
   vim.api.nvim_win_set_cursor(0, { 2, 0 })
 

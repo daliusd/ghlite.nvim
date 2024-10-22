@@ -102,7 +102,7 @@ function M.load_pr_view()
   end
 
   table.insert(pr_view, '')
-  table.insert(pr_view, 'Press Ctrl-A to approve PR')
+  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
 
   local buf = vim.api.nvim_create_buf(false, true)
 
