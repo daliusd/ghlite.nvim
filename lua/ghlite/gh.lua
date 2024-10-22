@@ -47,7 +47,7 @@ local function group_comments(comments)
     local grouped_comments = {
       id = comment_group[1].id,
       line = comment_group[1].line,
-      url = comment_group[1].url,
+      url = comment_group[#comment_group].url,
       content = "",
     }
     for _, comment in pairs(comment_group) do
