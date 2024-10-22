@@ -33,6 +33,8 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         keymaps = { -- override default keymaps with the ones you prefer
           diff = {
             open_file = 'gf',
+            open_file_tab = 'gt',
+            open_file_split = 'gs',
             approve = '<C-A>',
           },
           comment = {

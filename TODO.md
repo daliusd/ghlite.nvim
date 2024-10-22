@@ -25,8 +25,8 @@
 - [x] Allow to select PR without checking it out: quite some functionality
   should work without checking out
 - [x] Support comments in diff view
+- [x] Maybe we should add more key bindings to diff, like `gt` or `gs`
 - [ ] Fix messages with key bindings with override keys
-- [ ] Maybe we should add more key bindings to diff, like `gt` or `gs`
 - [ ] use html_url of last comment in conversation
 - [ ] Keep old comments information in group (addition, update and deletion will be smoother)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)

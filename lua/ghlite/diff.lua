@@ -40,23 +40,24 @@ local function construct_mappings(diff_content)
   end
 end
 
-local function open_file_from_diff()
-  local current_branch = utils.get_current_git_branch_name()
-  if state.selected_headRefName ~= current_branch then
-    local current_pr = pr.approve_and_chechkout_selected_pr()
-    if current_pr == nil then
-      vim.notify('No PR to work with.', vim.log.levels.WARN)
-      return
+local function open_file_from_diff(open_command)
+  return function()
+    local current_branch = utils.get_current_git_branch_name()
+    if state.selected_headRefName ~= current_branch then
+      local current_pr = pr.approve_and_chechkout_selected_pr()
+      if current_pr == nil then
+        vim.notify('No PR to work with.', vim.log.levels.WARN)
+        return
+      end
     end
+
+    local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+
+    local file_path = state.diff_line_to_filename_line[cursor_line][1]
+    local line_in_file = state.diff_line_to_filename_line[cursor_line][2]
+    vim.cmd(open_command .. ' ' .. file_path)
+    vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
   end
-
-  local buf = vim.api.nvim_get_current_buf()
-  local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
-
-  local file_path = state.diff_line_to_filename_line[cursor_line][1]
-  local line_in_file = state.diff_line_to_filename_line[cursor_line][2]
-  vim.cmd("edit " .. file_path)
-  vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
 end
 
 function M.load_pr_diff()
@@ -88,7 +89,11 @@ function M.load_pr_diff()
   vim.bo[buf].modifiable = false
 
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file, '',
-    { noremap = true, silent = true, callback = open_file_from_diff })
+    { noremap = true, silent = true, callback = open_file_from_diff('edit') })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_tab, '',
+    { noremap = true, silent = true, callback = open_file_from_diff('tabedit') })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
+    { noremap = true, silent = true, callback = open_file_from_diff('split') })
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
     { noremap = true, silent = true, callback = pr.approve_pr })
 

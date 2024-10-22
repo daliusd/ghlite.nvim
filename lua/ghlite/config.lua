@@ -10,6 +10,8 @@ M.s = {
   keymaps = {
     diff = {
       open_file = 'gf',
+      open_file_tab = 'gt',
+      open_file_split = 'gs',
       approve = '<C-A>',
     },
     comment = {
