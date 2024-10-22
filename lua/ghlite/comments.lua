@@ -64,7 +64,7 @@ M.load_comments_on_current_buffer = function()
 end
 
 M.load_comments_on_buffer = function(bufnr)
-  if state.selected_headRefName ~= utils.get_current_git_branch_name() then
+  if state.selected_headRefName ~= nil and state.selected_headRefName ~= utils.get_current_git_branch_name() then
     return
   end
 

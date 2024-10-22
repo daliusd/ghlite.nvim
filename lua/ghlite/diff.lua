@@ -43,7 +43,7 @@ end
 local function open_file_from_diff(open_command)
   return function()
     local current_branch = utils.get_current_git_branch_name()
-    if state.selected_headRefName ~= current_branch then
+    if state.selected_headRefName ~= nil and state.selected_headRefName ~= current_branch then
       local current_pr = pr.approve_and_chechkout_selected_pr()
       if current_pr == nil then
         vim.notify('No PR to work with.', vim.log.levels.WARN)
