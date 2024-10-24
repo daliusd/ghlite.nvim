@@ -53,8 +53,9 @@ local function open_file_from_diff(open_command)
 
     local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
 
-    local file_path = state.diff_line_to_filename_line[cursor_line][1]
-    local line_in_file = state.diff_line_to_filename_line[cursor_line][2]
+    local fnpair = state.diff_line_to_filename_line[cursor_line]
+    local file_path = fnpair[1]
+    local line_in_file = fnpair[2]
     vim.cmd(open_command .. ' ' .. file_path)
     vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
   end

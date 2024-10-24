@@ -1,6 +1,7 @@
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
-local state = require "ghlite.state"
+
+require "ghlite.types"
 
 local f = string.format
 local json = {
@@ -10,6 +11,7 @@ local json = {
 
 local M = {}
 
+--- @return Comment: extracted gh comment
 function M.convert_comment(comment)
   return {
     id = comment.id,
@@ -23,11 +25,13 @@ function M.convert_comment(comment)
   }
 end
 
+--- @param comment Comment
 function M.format_comment(comment)
   return string.format("✍️ %s at %s:\n%s\n\n", comment.user, comment.updated_at, string.gsub(comment.body, "\r", ""))
 end
 
 local function group_comments(comments)
+  --- @type table<number, Comment[]>
   local comment_groups = {}
   local base = {}
   local git_root = utils.get_git_root()
@@ -42,8 +46,10 @@ local function group_comments(comments)
     end
   end
 
+  --- @type table<string, GroupedComment[]>
   local result = {}
   for _, comment_group in pairs(comment_groups) do
+    --- @type GroupedComment
     local grouped_comments = {
       id = comment_group[1].id,
       line = comment_group[1].line,

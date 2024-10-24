@@ -135,8 +135,8 @@ local function get_current_filename_and_line()
     current_filename = info[1]
     current_line = info[2]
   else
-    local pr = gh.get_current_pr()
-    if pr == nil then
+    local current_pr = gh.get_current_pr()
+    if current_pr == nil then
       return nil, nil
     end
   end
