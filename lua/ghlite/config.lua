@@ -28,7 +28,7 @@ function M.setup(config)
 end
 
 function M.log(key, message)
-  if M.debug then
+  if M.s.debug then
     local home = os.getenv("HOME")
     local log_file_name = home .. '/.ghlite.log'
     local log_file = io.open(log_file_name, "a")

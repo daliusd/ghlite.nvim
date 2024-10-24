@@ -62,7 +62,7 @@ local function open_file_from_diff(open_command)
 end
 
 function M.load_pr_diff()
-  local pr_number = pr.get_selected_or_current_pr()
+  local pr_number = gh.get_selected_or_current_pr()
   if pr_number == nil then
     vim.notify('No PR selected/checked out', vim.log.levels.WARN)
     return

@@ -8,6 +8,9 @@ M.selected_PR = nil
 --- @type string|nil
 M.selected_headRefName = nil
 
+--- @type string|nil
+M.selected_headRefOid = nil
+
 --- @type table<string, GroupedComment[]>
 M.comments_list = {}
 

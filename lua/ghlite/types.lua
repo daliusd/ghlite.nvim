@@ -13,6 +13,7 @@
 --- @field line number
 --- @field url string
 --- @field content string
+--- @field comments Comment[]
 
 --- @class FileNameAndLinePair
 --- @field [1] string filename

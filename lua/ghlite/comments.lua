@@ -3,6 +3,7 @@ local utils = require "ghlite.utils"
 local config = require "ghlite.config"
 local state = require "ghlite.state"
 local pr = require "ghlite.pr"
+local comments_utils = require "ghlite.comments_utils"
 
 local M = {}
 
@@ -114,6 +115,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
 end
 
 M.get_conversations = function(current_filename, current_line)
+  --- @type GroupedComment[]
   local conversations = {}
   if state.comments_list[current_filename] ~= nil then
     for _, comment in pairs(state.comments_list[current_filename]) do
@@ -146,7 +148,7 @@ end
 
 M.comment_on_line = function()
   local current_filename, current_line = get_current_filename_and_line()
-  if current_filename == nil then
+  if current_filename == nil or current_line == nil then
     vim.notify('You are on master.', vim.log.levels.WARN)
     return
   end
@@ -173,11 +175,14 @@ M.comment_on_line = function()
 
     local conversations = M.get_conversations(current_filename, current_line)
 
-    local function reply(comment)
-      local resp = gh.reply_to_comment(input, comment.id)
+    --- @param grouped_comment GroupedComment
+    local function reply(grouped_comment)
+      local resp = gh.reply_to_comment(input, grouped_comment.id)
       if resp['errors'] == nil then
         vim.notify('Reply sent.')
-        comment.content = comment.content .. gh.format_comment(gh.convert_comment(resp))
+        local new_comment = comments_utils.convert_comment(resp)
+        table.insert(grouped_comment.comments, new_comment)
+        grouped_comment.content = comments_utils.prepare_content(grouped_comment.comments)
       else
         vim.notify('Failed to reply to comment.', vim.log.levels.WARN)
       end
@@ -207,11 +212,14 @@ M.comment_on_line = function()
       if current_filename:sub(1, #git_root) == git_root then
         local resp = gh.new_comment(input, current_filename:sub(#git_root + 2), current_line)
         if resp['errors'] == nil then
+          local new_comment = comments_utils.convert_comment(resp)
+          --- @type GroupedComment
           local new_comment_group = {
             id = resp.id,
             line = current_line,
             url = resp.html_url,
-            content = gh.format_comment(gh.convert_comment(resp)),
+            comments = { new_comment },
+            content = comments_utils.prepare_content({ new_comment }),
           }
           if state.comments_list[current_filename] == nil then
             state.comments_list[current_filename] = { new_comment_group }

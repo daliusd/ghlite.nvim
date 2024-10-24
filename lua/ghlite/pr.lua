@@ -34,6 +34,7 @@ function M.select()
       if pr ~= nil then
         state.selected_PR = tostring(pr.number)
         state.selected_headRefName = pr.headRefName
+        state.selected_headRefOid = pr.headRefOid
         M.load_pr_view()
       end
     end)
@@ -45,20 +46,11 @@ function M.checkout()
       if pr ~= nil then
         state.selected_PR = tostring(pr.number)
         state.selected_headRefName = pr.headRefName
+        state.selected_headRefOid = pr.headRefOid
         gh.checkout_pr(state.selected_PR)
         M.load_pr_view()
       end
     end)
-end
-
-function M.get_selected_or_current_pr()
-  if state.selected_PR ~= nil then
-    return state.selected_PR
-  end
-  local current_pr = gh.get_current_pr()
-  if current_pr ~= nil then
-    return current_pr
-  end
 end
 
 function M.approve_and_chechkout_selected_pr()
@@ -87,7 +79,7 @@ function M.get_working_pr()
 end
 
 function M.load_pr_view()
-  local pr_number = M.get_selected_or_current_pr()
+  local pr_number = gh.get_selected_or_current_pr()
   if pr_number == nil then
     vim.notify('No PR selected/checked out', vim.log.levels.WARN)
     return
