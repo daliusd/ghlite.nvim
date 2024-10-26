@@ -2,19 +2,13 @@ require "ghlite.types"
 
 local M = {}
 
---- @type string|nil
+--- @type PullRequest|nil
 M.selected_PR = nil
----
---- @type string|nil
-M.selected_headRefName = nil
-
---- @type string|nil
-M.selected_headRefOid = nil
 
 --- @type table<string, GroupedComment[]>
 M.comments_list = {}
 
---- @type integer|nil
+--- @type integer|nil Diff view buffer id
 M.diff_buffer_id = nil
 
 --- @type table<string, table<number, number>>

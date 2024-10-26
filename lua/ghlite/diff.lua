@@ -1,9 +1,10 @@
 local utils = require "ghlite.utils"
-local pr = require "ghlite.pr"
+local pr_commands = require "ghlite.pr_commands"
 local config = require "ghlite.config"
 local gh = require "ghlite.gh"
 local comments = require "ghlite.comments"
 local state = require "ghlite.state"
+local pr_utils = require "ghlite.pr_utils"
 
 local M = {}
 
@@ -42,13 +43,9 @@ end
 
 local function open_file_from_diff(open_command)
   return function()
-    local current_branch = utils.get_current_git_branch_name()
-    if state.selected_headRefName ~= nil and state.selected_headRefName ~= current_branch then
-      local current_pr = pr.approve_and_chechkout_selected_pr()
-      if current_pr == nil then
-        vim.notify('No PR to work with.', vim.log.levels.WARN)
-        return
-      end
+    if pr_utils.get_checked_out_pr() == nil then
+      vim.notify('No PR to work with.', vim.log.levels.WARN)
+      return
     end
 
     local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
@@ -62,14 +59,14 @@ local function open_file_from_diff(open_command)
 end
 
 function M.load_pr_diff()
-  local pr_number = gh.get_selected_or_current_pr()
-  if pr_number == nil then
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
     vim.notify('No PR selected/checked out', vim.log.levels.WARN)
     return
   end
 
   vim.notify('PR diff loading started...')
-  local diff_content = gh.get_pr_diff(pr_number)
+  local diff_content = gh.get_pr_diff(selected_pr.number)
   construct_mappings(diff_content)
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -96,11 +93,11 @@ function M.load_pr_diff()
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
     { noremap = true, silent = true, callback = open_file_from_diff('split') })
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
-    { noremap = true, silent = true, callback = pr.approve_pr })
+    { noremap = true, silent = true, callback = pr_commands.approve_pr })
 
   vim.notify('PR diff loaded.')
   vim.notify('Comments on diff load started...')
-  comments.load_comments_only(pr_number)
+  comments.load_comments_only(selected_pr.number)
   comments.load_comments_on_diff_buffer(buf)
   vim.notify('Comments on diff loaded.')
 end

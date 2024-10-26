@@ -2,8 +2,8 @@ local gh = require "ghlite.gh"
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
 local state = require "ghlite.state"
-local pr = require "ghlite.pr"
 local comments_utils = require "ghlite.comments_utils"
+local pr_utils = require "ghlite.pr_utils"
 
 local M = {}
 
@@ -40,14 +40,14 @@ local function load_comments_to_quickfix_list()
 end
 
 M.load_comments = function()
-  local working_pr = pr.get_working_pr()
-  if working_pr == nil then
+  local checked_out_pr = pr_utils.get_checked_out_pr()
+  if checked_out_pr == nil then
     vim.notify('No PR to work with.', vim.log.levels.WARN)
     return
   end
 
   vim.notify('Comment loading started...')
-  state.comments_list = gh.load_comments(working_pr)
+  state.comments_list = gh.load_comments(checked_out_pr.number)
 
   load_comments_to_quickfix_list()
 
@@ -65,7 +65,12 @@ M.load_comments_on_current_buffer = function()
 end
 
 M.load_comments_on_buffer = function(bufnr)
-  if state.selected_headRefName ~= nil and state.selected_headRefName ~= utils.get_current_git_branch_name() then
+  if bufnr == state.diff_buffer_id then
+    M.load_comments_on_diff_buffer(bufnr)
+    return
+  end
+
+  if not pr_utils.is_pr_checked_out() then
     return
   end
 
@@ -137,8 +142,13 @@ local function get_current_filename_and_line()
     current_filename = info[1]
     current_line = info[2]
   else
-    local current_pr = gh.get_current_pr()
-    if current_pr == nil then
+    local is_pr_checked_out = pr_utils.is_pr_checked_out()
+    local checked_out_pr = pr_utils.get_checked_out_pr()
+
+    if not is_pr_checked_out then
+      if checked_out_pr then
+        vim.notify('Command canceled because of PR check out.', vim.log.levels.WARN)
+      end
       return nil, nil
     end
   end
@@ -149,7 +159,7 @@ end
 M.comment_on_line = function()
   local current_filename, current_line = get_current_filename_and_line()
   if current_filename == nil or current_line == nil then
-    vim.notify('You are on master.', vim.log.levels.WARN)
+    vim.notify('You are on master or branch without PR.', vim.log.levels.WARN)
     return
   end
 
@@ -233,6 +243,14 @@ M.comment_on_line = function()
         end
       end
     end
+
+    local current_buf = vim.api.nvim_get_current_buf()
+
+    if current_buf == state.diff_buffer_id then
+      M.load_comments_on_diff_buffer(current_buf)
+    else
+      M.load_comments_on_buffer(current_buf)
+    end
   end
 
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
@@ -244,7 +262,7 @@ end
 M.open_comment = function()
   local current_filename, current_line = get_current_filename_and_line()
   if current_filename == nil then
-    vim.notify('You are on master.', vim.log.levels.WARN)
+    vim.notify('You are on master or branch without PR.', vim.log.levels.WARN)
     return
   end
 

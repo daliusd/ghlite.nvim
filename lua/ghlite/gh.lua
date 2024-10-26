@@ -14,24 +14,20 @@ local json = {
 local M = {}
 
 function M.get_current_pr()
-  return utils.system_str('gh pr view --json number -q .number')[1]
+  local result = utils.system_str('gh pr view --json headRefName,headRefOid,number')
+  if result[1] == nil then
+    return nil
+  end
+
+  return json.parse(result)
 end
 
-function M.get_selected_or_current_pr()
-  if state.selected_PR ~= nil then
-    return state.selected_PR
-  end
-  local current_pr = M.get_current_pr()
-  if current_pr ~= nil then
-    return current_pr
-  end
-end
-
-function M.load_comments(pr)
+--- @params pr_number number
+function M.load_comments(pr_number)
   local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
   config.log("repo", repo)
 
-  local comments = json.parse(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr)))
+  local comments = json.parse(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr_number)))
   config.log("comments", comments)
 
   local function is_valid_comment(comment)
@@ -51,14 +47,18 @@ end
 
 function M.reply_to_comment(body, reply_to)
   local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local pr = M.get_selected_or_current_pr()
+  local selected_pr = state.selected_PR
+  if selected_pr == nil then
+    vim.notify('PR should be selected already', vim.log.levels.ERROR)
+    return
+  end
 
   local request = {
     'gh',
     'api',
     '--method',
     'POST',
-    f("repos/%s/pulls/%d/comments", repo, pr),
+    f("repos/%s/pulls/%d/comments", repo, selected_pr.number),
     "-f",
     "body=" .. body,
     "-F",
@@ -74,15 +74,19 @@ end
 
 function M.new_comment(body, path, line)
   local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local pr = M.get_selected_or_current_pr()
-  local commit_id = state.selected_headRefOid and state.selected_headRefOid or utils.system_str("git rev-parse HEAD")[1]
+  local selected_pr = state.selected_PR
+  if selected_pr == nil then
+    vim.notify('PR should be selected already', vim.log.levels.ERROR)
+    return
+  end
+  local commit_id = selected_pr.headRefOid
 
   local request = {
     'gh',
     'api',
     '--method',
     'POST',
-    f("repos/%s/pulls/%d/comments", repo, pr),
+    f("repos/%s/pulls/%d/comments", repo, selected_pr.number),
     "-f",
     "body=" .. body,
     "-f",
@@ -109,8 +113,9 @@ function M.get_pr_list()
   return resp
 end
 
+--- @param number number
 function M.checkout_pr(number)
-  local resp = utils.system_str(f('gh pr checkout %s', number))
+  local resp = utils.system_str(f('gh pr checkout %d', number))
   return resp
 end
 

@@ -18,3 +18,8 @@
 --- @class FileNameAndLinePair
 --- @field [1] string filename
 --- @field [2] number line
+
+--- @class PullRequest
+--- @field number number
+--- @field headRefName string
+--- @field headRefOid string
