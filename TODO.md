@@ -29,12 +29,12 @@
 - [x] Fix messages with key bindings with override keys
 - [x] use html_url of last comment in conversation
 - [x] Keep old comments information in group (addition, update and deletion will be smoother)
-- [ ] Rethink how to simplify which PR to use as we have selected and checked
+- [x] Rethink how to simplify which PR to use as we have selected and checked
   out PRs and that's confusing. As well selected PR might not match checked out
   PR. As well we might get assumed selected PR if we have PR branch checked
   out.
+- [x] Improve commenting in diff view
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
-- [ ] Improve comment diff view
 - [ ] Allow to comment on multiple lines (visual mode)
 - [ ] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)
