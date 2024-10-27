@@ -1,7 +1,6 @@
 local utils = require "ghlite.utils"
 local config = require "ghlite.config"
 local comments_utils = require "ghlite.comments_utils"
-local state = require "ghlite.state"
 
 require "ghlite.types"
 
@@ -22,9 +21,13 @@ function M.get_current_pr()
   return json.parse(result)
 end
 
+local function get_repo()
+  return utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
+end
+
 --- @params pr_number number
 function M.load_comments(pr_number)
-  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
+  local repo = get_repo()
   config.log("repo", repo)
 
   local comments = json.parse(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr_number)))
@@ -45,20 +48,15 @@ function M.load_comments(pr_number)
   return comments
 end
 
-function M.reply_to_comment(body, reply_to)
-  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local selected_pr = state.selected_PR
-  if selected_pr == nil then
-    vim.notify('PR should be selected already', vim.log.levels.ERROR)
-    return
-  end
+function M.reply_to_comment(pr_number, body, reply_to)
+  local repo = get_repo()
 
   local request = {
     'gh',
     'api',
     '--method',
     'POST',
-    f("repos/%s/pulls/%d/comments", repo, selected_pr.number),
+    f("repos/%s/pulls/%d/comments", repo, pr_number),
     "-f",
     "body=" .. body,
     "-F",
@@ -72,13 +70,8 @@ function M.reply_to_comment(body, reply_to)
   return resp
 end
 
-function M.new_comment(body, path, line)
-  local repo = utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
-  local selected_pr = state.selected_PR
-  if selected_pr == nil then
-    vim.notify('PR should be selected already', vim.log.levels.ERROR)
-    return
-  end
+function M.new_comment(selected_pr, body, path, line)
+  local repo = get_repo()
   local commit_id = selected_pr.headRefOid
 
   local request = {
@@ -106,6 +99,24 @@ function M.new_comment(body, path, line)
   return resp
 end
 
+function M.delete_comment(comment_id)
+  local repo = get_repo()
+
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'DELETE',
+    f("repos/%s/pulls/comments/%s", repo, comment_id),
+  }
+  config.log('delete_comment request', request)
+
+  local resp = utils.system(request)
+
+  config.log("delete_comment resp", resp)
+  return resp
+end
+
 function M.get_pr_list()
   local resp = json.parse(utils.system_str(
     'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid'))
@@ -126,6 +137,10 @@ end
 
 function M.get_pr_diff(number)
   return utils.system_str(f('gh pr diff %s', number))
+end
+
+function M.get_user()
+  return utils.system_str('gh api user -q .login')[1]
 end
 
 return M

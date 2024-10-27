@@ -29,7 +29,9 @@ function M.prepare_content(comments)
     content = content .. format_comment(comment)
   end
 
-  content = content .. '\n' .. comments[1].diff_hunk .. '\n'
+  if #comments > 0 then
+    content = content .. '\n' .. comments[1].diff_hunk .. '\n'
+  end
 
   return content
 end

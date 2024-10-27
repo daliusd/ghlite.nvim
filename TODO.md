@@ -34,7 +34,7 @@
   PR. As well we might get assumed selected PR if we have PR branch checked
   out.
 - [x] Improve commenting in diff view
+- [x] Delete comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Update comment (select from existing ones if more than one, test fresh comment scenario)
-- [ ] Delete comment (select from existing ones if more than one, test fresh comment scenario)
 - [ ] Allow to comment on multiple lines (visual mode)
 - [ ] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)

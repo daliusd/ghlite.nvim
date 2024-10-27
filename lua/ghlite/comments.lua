@@ -24,10 +24,12 @@ local function load_comments_to_quickfix_list()
     end)
 
     for _, comment in pairs(comments_in_file) do
-      table.insert(qf_entries, {
-        filename = filename,
-        lnum = comment.line,
-      })
+      if #comment.comments > 0 then
+        table.insert(qf_entries, {
+          filename = filename,
+          lnum = comment.line,
+        })
+      end
     end
   end
 
@@ -80,14 +82,16 @@ M.load_comments_on_buffer = function(bufnr)
   if state.comments_list[filename] ~= nil then
     local diagnostics = {}
     for _, comment in pairs(state.comments_list[filename]) do
-      config.log('comment to diagnostics', comment)
-      table.insert(diagnostics, {
-        lnum = comment.line - 1,
-        col = 0,
-        message = comment.content,
-        severity = vim.diagnostic.severity.INFO,
-        source = "GHLite",
-      })
+      if #comment.comments > 0 then
+        config.log('comment to diagnostics', comment)
+        table.insert(diagnostics, {
+          lnum = comment.line - 1,
+          col = 0,
+          message = comment.content,
+          severity = vim.diagnostic.severity.INFO,
+          source = "GHLite",
+        })
+      end
     end
 
     vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteNamespace"), bufnr, diagnostics, {})
@@ -103,7 +107,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
     if state.filename_line_to_diff_line[filename] then
       for _, comment in pairs(comments) do
         local diff_line = state.filename_line_to_diff_line[filename][comment.line]
-        if diff_line then
+        if diff_line and #comment.comments > 0 then
           table.insert(diagnostics, {
             lnum = diff_line - 1,
             col = 0,
@@ -159,7 +163,7 @@ end
 M.comment_on_line = function()
   local current_filename, current_line = get_current_filename_and_line()
   if current_filename == nil or current_line == nil then
-    vim.notify('You are on master or branch without PR.', vim.log.levels.WARN)
+    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
   end
 
@@ -187,7 +191,7 @@ M.comment_on_line = function()
 
     --- @param grouped_comment GroupedComment
     local function reply(grouped_comment)
-      local resp = gh.reply_to_comment(input, grouped_comment.id)
+      local resp = gh.reply_to_comment(state.selected_PR.number, input, grouped_comment.id)
       if resp['errors'] == nil then
         vim.notify('Reply sent.')
         local new_comment = comments_utils.convert_comment(resp)
@@ -220,7 +224,7 @@ M.comment_on_line = function()
     else
       local git_root = utils.get_git_root()
       if current_filename:sub(1, #git_root) == git_root then
-        local resp = gh.new_comment(input, current_filename:sub(#git_root + 2), current_line)
+        local resp = gh.new_comment(state.selected_PR, input, current_filename:sub(#git_root + 2), current_line)
         if resp['errors'] == nil then
           local new_comment = comments_utils.convert_comment(resp)
           --- @type GroupedComment
@@ -245,7 +249,6 @@ M.comment_on_line = function()
     end
 
     local current_buf = vim.api.nvim_get_current_buf()
-
     if current_buf == state.diff_buffer_id then
       M.load_comments_on_diff_buffer(current_buf)
     else
@@ -262,7 +265,7 @@ end
 M.open_comment = function()
   local current_filename, current_line = get_current_filename_and_line()
   if current_filename == nil then
-    vim.notify('You are on master or branch without PR.', vim.log.levels.WARN)
+    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
   end
 
@@ -288,6 +291,67 @@ M.open_comment = function()
   else
     vim.notify('No comments found on this line.', vim.log.levels.WARN)
   end
+end
+
+M.delete_comment = function()
+  local current_filename, current_line = get_current_filename_and_line()
+  if current_filename == nil then
+    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
+    return
+  end
+
+  local conversations = M.get_conversations(current_filename, current_line)
+
+  local user = gh.get_user()
+
+  --- @type Comment[]
+  local comments_list = {}
+  --- @type GroupedComment[]
+  local conversations_list = {}
+
+  for _, convo in pairs(conversations) do
+    for _, comment in pairs(convo.comments) do
+      if comment.user == user then
+        table.insert(comments_list, comment)
+        table.insert(conversations_list, convo)
+      end
+    end
+  end
+
+  if #comments_list == 0 then
+    vim.notify('No comments found that could be deleted.', vim.log.levels.WARN)
+    return
+  end
+
+  vim.ui.select(
+    comments_list,
+    {
+      prompt = 'Select comment to delete:',
+      format_item = function(comment)
+        return string.format('%s: %s', comment.updated_at, vim.fn.split(comment.body, '\n')[1])
+      end,
+    },
+    function(comment, idx)
+      if comment ~= nil then
+        vim.print(gh.delete_comment(comment.id))
+
+        local function is_non_deleted_comment(c)
+          return c.id ~= comment.id
+        end
+
+        local convo = conversations_list[idx]
+        convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
+        convo.content = comments_utils.prepare_content(convo.comments)
+
+        local current_buf = vim.api.nvim_get_current_buf()
+        if current_buf == state.diff_buffer_id then
+          M.load_comments_on_diff_buffer(current_buf)
+        else
+          M.load_comments_on_buffer(current_buf)
+        end
+      end
+    end
+  )
 end
 
 return M

@@ -47,13 +47,14 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       })
     end,
     keys = {
-      { '<leader>us', ':GHLitePRSelect<cr>',       silent = true },
-      { '<leader>uo', ':GHLitePRCheckout<cr>',     silent = true },
-      { '<leader>uv', ':GHLitePRView<cr>',         silent = true },
-      { '<leader>uu', ':GHLitePRLoadComments<cr>', silent = true },
-      { '<leader>up', ':GHLitePRDiff<cr>',         silent = true },
-      { '<leader>ua', ':GHLitePRAddComment<cr>',   silent = true },
-      { '<leader>ug', ':GHLitePROpenComment<cr>',  silent = true },
+      { '<leader>us', ':GHLitePRSelect<cr>',        silent = true },
+      { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true },
+      { '<leader>uv', ':GHLitePRView<cr>',          silent = true },
+      { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true },
+      { '<leader>up', ':GHLitePRDiff<cr>',          silent = true },
+      { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true },
+      { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true },
+      { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true },
     }
   }
 ```
@@ -171,6 +172,10 @@ Supported key bindings:
       `GHLitePRLoadComments` command) then comment is added as reply to thread.
 
     * If there is no comment on line then new conversation is started.
+
+### GHLitePRAddComment
+
+This command deletes selected comment.
 
 ### GHLitePROpenComment
 
