@@ -248,12 +248,7 @@ M.comment_on_line = function()
       end
     end
 
-    local current_buf = vim.api.nvim_get_current_buf()
-    if current_buf == state.diff_buffer_id then
-      M.load_comments_on_diff_buffer(current_buf)
-    else
-      M.load_comments_on_buffer(current_buf)
-    end
+    M.load_comments_on_current_buffer()
   end
 
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
@@ -293,15 +288,8 @@ M.open_comment = function()
   end
 end
 
-M.delete_comment = function()
-  local current_filename, current_line = get_current_filename_and_line()
-  if current_filename == nil then
-    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
-    return
-  end
-
+local function get_own_comments(current_filename, current_line)
   local conversations = M.get_conversations(current_filename, current_line)
-
   local user = gh.get_user()
 
   --- @type Comment[]
@@ -318,6 +306,86 @@ M.delete_comment = function()
     end
   end
 
+  return comments_list, conversations_list
+end
+
+--- @param comment Comment
+--- @param conversation GroupedComment
+local function edit_comment_body(comment, conversation)
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'markdown'
+
+  if config.s.comment_split then
+    vim.api.nvim_command(config.s.comment_split)
+  end
+  vim.api.nvim_set_current_buf(buf)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.fn.split(comment.body, '\n'))
+
+  local function capture_input_and_close()
+    local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local input = table.concat(input_lines, "\n")
+
+    vim.cmd('bwipeout')
+
+    local resp = gh.update_comment(comment.id, input)
+    if resp['errors'] == nil then
+      vim.notify('Comment updated.')
+      comment.body = resp.body
+      conversation.content = comments_utils.prepare_content(conversation.comments)
+
+      M.load_comments_on_current_buffer()
+    else
+      vim.notify('Failed to update the comment.', vim.log.levels.ERROR)
+    end
+  end
+
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
+    { noremap = true, silent = true, callback = capture_input_and_close })
+  vim.api.nvim_buf_set_keymap(buf, 'i', config.s.keymaps.comment.send_comment, '',
+    { noremap = true, silent = true, callback = capture_input_and_close })
+end
+
+M.update_comment = function()
+  local current_filename, current_line = get_current_filename_and_line()
+  if current_filename == nil then
+    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
+    return
+  end
+
+  local comments_list, conversations_list = get_own_comments(current_filename, current_line)
+
+  if #comments_list == 0 then
+    vim.notify('No comments found that could be updated.', vim.log.levels.WARN)
+    return
+  end
+
+  vim.ui.select(
+    comments_list,
+    {
+      prompt = 'Select comment to update:',
+      format_item = function(comment)
+        return string.format('%s: %s', comment.updated_at, vim.fn.split(comment.body, '\n')[1])
+      end,
+    },
+    function(comment, idx)
+      if comment ~= nil then
+        edit_comment_body(comment, conversations_list[idx])
+      end
+    end
+  )
+end
+
+M.delete_comment = function()
+  local current_filename, current_line = get_current_filename_and_line()
+  if current_filename == nil then
+    vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
+    return
+  end
+
+  local comments_list, conversations_list = get_own_comments(current_filename, current_line)
+
   if #comments_list == 0 then
     vim.notify('No comments found that could be deleted.', vim.log.levels.WARN)
     return
@@ -333,7 +401,7 @@ M.delete_comment = function()
     },
     function(comment, idx)
       if comment ~= nil then
-        vim.print(gh.delete_comment(comment.id))
+        gh.delete_comment(comment.id)
 
         local function is_non_deleted_comment(c)
           return c.id ~= comment.id
@@ -343,12 +411,7 @@ M.delete_comment = function()
         convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
         convo.content = comments_utils.prepare_content(convo.comments)
 
-        local current_buf = vim.api.nvim_get_current_buf()
-        if current_buf == state.diff_buffer_id then
-          M.load_comments_on_diff_buffer(current_buf)
-        else
-          M.load_comments_on_buffer(current_buf)
-        end
+        M.load_comments_on_current_buffer()
       end
     end
   )

@@ -99,6 +99,26 @@ function M.new_comment(selected_pr, body, path, line)
   return resp
 end
 
+function M.update_comment(comment_id, body)
+  local repo = get_repo()
+
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'PATCH',
+    f("repos/%s/pulls/comments/%s", repo, comment_id),
+    "-f",
+    "body=" .. body,
+  }
+  config.log('update_comment request', request)
+
+  local resp = json.parse(utils.system(request))
+
+  config.log("update_comment resp", resp)
+  return resp
+end
+
 function M.delete_comment(comment_id)
   local repo = get_repo()
 

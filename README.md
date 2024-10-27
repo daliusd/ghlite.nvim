@@ -53,6 +53,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true },
       { '<leader>up', ':GHLitePRDiff<cr>',          silent = true },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true },
+      { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true },
       { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true },
       { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true },
     }
@@ -173,7 +174,11 @@ Supported key bindings:
 
     * If there is no comment on line then new conversation is started.
 
-### GHLitePRAddComment
+### GHLitePRUpdateComment
+
+This command updates selected comment.
+
+### GHLitePRDeleteComment
 
 This command deletes selected comment.
 

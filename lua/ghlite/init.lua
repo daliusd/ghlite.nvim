@@ -15,6 +15,7 @@ M.setup = function(user_config)
   vim.api.nvim_create_user_command('GHLitePRLoadComments', comments.load_comments, {})
   vim.api.nvim_create_user_command('GHLitePRDiff', diff.load_pr_diff, {})
   vim.api.nvim_create_user_command('GHLitePRAddComment', comments.comment_on_line, {})
+  vim.api.nvim_create_user_command('GHLitePRUpdateComment', comments.update_comment, {})
   vim.api.nvim_create_user_command('GHLitePROpenComment', comments.open_comment, {})
   vim.api.nvim_create_user_command('GHLitePRDeleteComment', comments.delete_comment, {})
 
