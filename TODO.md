@@ -37,4 +37,3 @@
 - [x] Delete comment (select from existing ones if more than one, test fresh comment scenario)
 - [x] Update comment (select from existing ones if more than one, test fresh comment scenario)
 - [x] Support [diffview.nvim](https://github.com/sindrets/diffview.nvim)
-- [ ] Allow to comment on multiple lines (visual mode)

@@ -1,5 +1,4 @@
 local gh = require "ghlite.gh"
-local utils = require "ghlite.utils"
 local config = require "ghlite.config"
 local state = require "ghlite.state"
 local pr_utils = require "ghlite.pr_utils"
@@ -59,14 +58,57 @@ function M.load_pr_view()
 
   vim.notify('PR view loading started...')
 
-  local pr_view = utils.system_str(string.format('gh pr view %s', selected_pr.number))
-  for i, line in ipairs(pr_view) do
-    line = line:match("^%s*(.-)%s*$")
-    pr_view[i] = line
+  local pr_info = gh.get_pr_info(selected_pr.number)
+  vim.print(pr_info)
+  if pr_info == nil then
+    vim.notify('PR view load failed', vim.log.levels.ERROR)
+    return
+  end
+
+  local pr_view = {
+    string.format('#%d %s', pr_info.number, pr_info.title),
+    string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
+    string.format('URL: %s', pr_info.url),
+    string.format('Changes files: %d', pr_info.changedFiles),
+  }
+
+  if pr_info.isDraft then
+    table.insert(pr_view, 'Draft')
+  end
+
+  if #pr_info.labels > 0 then
+    local labels = 'Labels: '
+    for idx, label in pairs(pr_info.labels) do
+      labels = labels .. (idx > 1 and ', ' or '') .. label.name
+    end
+    table.insert(pr_view, labels)
+  end
+
+  if #pr_info.reviews > 0 then
+    local reviews = 'Reviews: '
+    for idx, review in pairs(pr_info.reviews) do
+      reviews = reviews .. (idx > 1 and ', ' or '') .. string.format("%s (%s)", review.author.login, review.state)
+    end
+    table.insert(pr_view, reviews)
   end
 
   table.insert(pr_view, '')
+  table.insert(pr_view, pr_info.body)
+
+  table.insert(pr_view, '')
   table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
+
+  if #pr_info.comments > 0 then
+    table.insert(pr_view, '')
+    table.insert(pr_view, 'Comments:')
+    table.insert(pr_view, '')
+
+    for _, comment in pairs(pr_info.comments) do
+      table.insert(pr_view, string.format("%s at %s:", comment.author.login, comment.createdAt))
+      table.insert(pr_view, comment.body)
+      table.insert(pr_view, '')
+    end
+  end
 
   local buf = vim.api.nvim_create_buf(false, true)
 

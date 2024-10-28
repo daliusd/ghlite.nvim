@@ -21,6 +21,17 @@ function M.get_current_pr()
   return json.parse(result)
 end
 
+function M.get_pr_info(pr_number)
+  local result = utils.system_str(f(
+    'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt',
+    pr_number))
+  if result[1] == nil then
+    return nil
+  end
+
+  return json.parse(result)
+end
+
 local function get_repo()
   return utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
 end
