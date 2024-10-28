@@ -13,7 +13,7 @@ local json = {
 local M = {}
 
 function M.get_current_pr()
-  local result = utils.system_str('gh pr view --json headRefName,headRefOid,number')
+  local result = utils.system_str('gh pr view --json headRefName,headRefOid,number,baseRefName')
   if result[1] == nil then
     return nil
   end
@@ -139,7 +139,7 @@ end
 
 function M.get_pr_list()
   local resp = json.parse(utils.system_str(
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid'))
+    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName'))
 
   return resp
 end

@@ -14,6 +14,8 @@ instead of replacing it like other plugins do.
 - If you are using fzf-lua or telescope you might want to checkout how to
   override UI select. E.g. `vim.cmd('FzfLua register_ui_select')`
 
+- [Diffview.nvim](https://github.com/sindrets/diffview.nvim) (optional)
+
 ## Installation
 
 Using lazyvim.
@@ -52,6 +54,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>uv', ':GHLitePRView<cr>',          silent = true },
       { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true },
       { '<leader>up', ':GHLitePRDiff<cr>',          silent = true },
+      { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true },
       { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true },
       { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true },
@@ -160,6 +163,11 @@ Supported key bindings:
   branch checked out.
 
 * `Ctrl-a` to approve PR
+
+### GHLitePRDiffview
+
+This command shows PR diff against `baseRefName` (e.g. main) using
+[Diffview.nvim](https://github.com/sindrets/diffview.nvim).
 
 ### GHLitePRAddComment
 

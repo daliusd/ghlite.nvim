@@ -102,4 +102,15 @@ function M.load_pr_diff()
   vim.notify('Comments on diff loaded.')
 end
 
+function M.load_pr_diffview()
+  local checked_out_pr = pr_utils.get_checked_out_pr()
+  if checked_out_pr == nil then
+    vim.notify('No PR to work with.', vim.log.levels.WARN)
+    return
+  end
+
+  vim.print(checked_out_pr)
+  vim.cmd(string.format('DiffviewOpen %s..HEAD', checked_out_pr.baseRefName))
+end
+
 return M
