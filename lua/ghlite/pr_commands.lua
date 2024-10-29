@@ -93,7 +93,9 @@ function M.load_pr_view()
   end
 
   table.insert(pr_view, '')
-  table.insert(pr_view, pr_info.body)
+  for _, line in ipairs(vim.fn.split(pr_info.body, '\n')) do
+    table.insert(pr_view, line)
+  end
 
   table.insert(pr_view, '')
   table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
@@ -105,7 +107,9 @@ function M.load_pr_view()
 
     for _, comment in pairs(pr_info.comments) do
       table.insert(pr_view, string.format("%s at %s:", comment.author.login, comment.createdAt))
-      table.insert(pr_view, comment.body)
+      for _, line in ipairs(vim.fn.split(comment.body, '\n')) do
+        table.insert(pr_view, line)
+      end
       table.insert(pr_view, '')
     end
   end
