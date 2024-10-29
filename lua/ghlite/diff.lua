@@ -105,13 +105,13 @@ function M.load_pr_diff()
 end
 
 function M.load_pr_diffview()
-  local checked_out_pr = pr_utils.get_checked_out_pr()
-  if checked_out_pr == nil then
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
     vim.notify('No PR to work with.', vim.log.levels.WARN)
     return
   end
 
-  vim.cmd(string.format('DiffviewOpen %s..HEAD', checked_out_pr.baseRefName))
+  vim.cmd(string.format('DiffviewOpen %s..%s', selected_pr.baseRefName, selected_pr.headRefName))
 end
 
 return M

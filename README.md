@@ -155,7 +155,8 @@ NOTE: You must checkout git branch related to PR either using
 
 This command loads PR diff that you can review. This command shows diff of
 selected PR. If no PR is selected then PR number is resolved from git branch
-associated with PR.
+associated with PR. Comments are loaded and shown as diagnostics in this view
+as well.
 
 Supported key bindings:
 
@@ -167,7 +168,7 @@ Supported key bindings:
 
 ### GHLitePRDiffview
 
-This command shows PR diff against `baseRefName` (e.g. main) using
+This command shows PR diff using
 [Diffview.nvim](https://github.com/sindrets/diffview.nvim).
 
 ### GHLitePRAddComment
