@@ -59,7 +59,6 @@ function M.load_pr_view()
   vim.notify('PR view loading started...')
 
   local pr_info = gh.get_pr_info(selected_pr.number)
-  vim.print(pr_info)
   if pr_info == nil then
     vim.notify('PR view load failed', vim.log.levels.ERROR)
     return

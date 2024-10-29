@@ -109,7 +109,6 @@ function M.load_pr_diffview()
     return
   end
 
-  vim.print(checked_out_pr)
   vim.cmd(string.format('DiffviewOpen %s..HEAD', checked_out_pr.baseRefName))
 end
 
