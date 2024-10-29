@@ -92,6 +92,8 @@ function M.load_pr_diff()
     { noremap = true, silent = true, callback = open_file_from_diff('tabedit') })
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
     { noremap = true, silent = true, callback = open_file_from_diff('split') })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_vsplit, '',
+    { noremap = true, silent = true, callback = open_file_from_diff('vsplit') })
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
     { noremap = true, silent = true, callback = pr_commands.approve_pr })
 

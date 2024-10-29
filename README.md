@@ -37,6 +37,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             open_file = 'gf',
             open_file_tab = 'gt',
             open_file_split = 'gs',
+            open_file_vsplit = 'gv',
             approve = '<C-A>',
           },
           comment = {
