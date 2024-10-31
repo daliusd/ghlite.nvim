@@ -21,7 +21,14 @@ local function ui_selectPR(prompt, callback)
         local date = pr.createdAt:sub(1, 10)
         local draft = pr.isDraft and ' Draft' or ''
         local approved = pr.reviewDecision == 'APPROVED' and ' Approved' or ''
-        return string.format('#%s: %s (%s, %s%s%s)', pr.number, pr.title, pr.author.login, date, draft, approved)
+
+        local labels = ''
+        for _, label in pairs(pr.labels) do
+          labels = labels .. ', ' .. label.name
+        end
+
+        return string.format('#%s: %s (%s, %s%s%s%s)', pr.number, pr.title, pr.author.login, date, draft, approved,
+          labels)
       end,
     },
     callback
