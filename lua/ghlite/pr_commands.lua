@@ -66,7 +66,6 @@ function M.load_pr_view()
 
   local buf = vim.api.nvim_create_buf(false, true)
   local chan = vim.api.nvim_open_term(buf, {})
-  vim.print(pr_info)
   vim.api.nvim_chan_send(chan, pr_info)
 
   if config.s.view_split then
