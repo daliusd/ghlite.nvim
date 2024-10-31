@@ -92,7 +92,8 @@ function M.load_pr_view()
   end
 
   table.insert(pr_view, '')
-  for _, line in ipairs(vim.fn.split(pr_info.body, '\n')) do
+  local body = string.gsub(pr_info.body, "\r", "")
+  for _, line in ipairs(vim.fn.split(body, '\n')) do
     table.insert(pr_view, line)
   end
 
@@ -106,7 +107,8 @@ function M.load_pr_view()
 
     for _, comment in pairs(pr_info.comments) do
       table.insert(pr_view, string.format("%s at %s:", comment.author.login, comment.createdAt))
-      for _, line in ipairs(vim.fn.split(comment.body, '\n')) do
+      local comment_body = string.gsub(comment.body, "\r", "")
+      for _, line in ipairs(vim.fn.split(comment_body, '\n')) do
         table.insert(pr_view, line)
       end
       table.insert(pr_view, '')
@@ -116,6 +118,7 @@ function M.load_pr_view()
   local buf = vim.api.nvim_create_buf(false, true)
 
   vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'markdown'
 
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, pr_view)
 
