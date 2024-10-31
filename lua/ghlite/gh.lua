@@ -37,6 +37,13 @@ function M.get_pr_info(pr_number)
   return parse_or_default(result, nil)
 end
 
+function M.get_pr_info_terminal(pr_number)
+  local result = utils.system_str_terminal(f(
+    'gh pr view %s',
+    pr_number))
+  return result
+end
+
 local function get_repo()
   return utils.system_str('gh repo view --json nameWithOwner -q .nameWithOwner')[1]
 end

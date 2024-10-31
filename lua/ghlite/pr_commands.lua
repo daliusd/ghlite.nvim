@@ -58,6 +58,37 @@ function M.load_pr_view()
 
   vim.notify('PR view loading started...')
 
+  local pr_info = gh.get_pr_info_terminal(selected_pr.number)
+  if pr_info == nil then
+    vim.notify('PR view load failed', vim.log.levels.ERROR)
+    return
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  local chan = vim.api.nvim_open_term(buf, {})
+  vim.print(pr_info)
+  vim.api.nvim_chan_send(chan, pr_info)
+
+  if config.s.view_split then
+    vim.api.nvim_command(config.s.view_split)
+  end
+  vim.api.nvim_set_current_buf(buf)
+
+  -- vim.bo[buf].readonly = true
+  -- vim.bo[buf].modifiable = false
+
+  vim.notify('PR view loaded.')
+end
+
+function M.load_pr_view_text()
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
+    vim.notify('No PR selected/checked out', vim.log.levels.WARN)
+    return
+  end
+
+  vim.notify('PR view loading started...')
+
   local pr_info = gh.get_pr_info(selected_pr.number)
   if pr_info == nil then
     vim.notify('PR view load failed', vim.log.levels.ERROR)

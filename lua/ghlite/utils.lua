@@ -6,6 +6,12 @@ function M.system_str(cmd)
   return vim.fn.split(result.stdout, '\n')
 end
 
+function M.system_str_terminal(cmd)
+  local cmd_split = vim.fn.split(cmd, " ");
+  local result = vim.system(cmd_split, { text = false, env = { GH_FORCE_TTY = 1 } }):wait()
+  return result.stdout
+end
+
 function M.system(cmd)
   local result = vim.system(cmd, { text = true }):wait()
   return vim.fn.split(result.stdout, '\n')
