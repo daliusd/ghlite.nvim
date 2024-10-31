@@ -23,9 +23,9 @@ A clear and concise description of what you expected to happen.
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
-** Neovim version OS:**
+**Neovim version and OS:**
  - nvim 0.10
-
+ - Linux / Mac OS X / ...
 
 **Additional context**
 - ghlite.nvim config you are using
