@@ -86,7 +86,7 @@ function M.reply_to_comment(pr_number, body, reply_to)
   return resp
 end
 
-function M.new_comment(selected_pr, body, path, line)
+function M.new_comment(selected_pr, body, path, start_line, line)
   local repo = get_repo()
   local commit_id = selected_pr.headRefOid
 
@@ -107,6 +107,12 @@ function M.new_comment(selected_pr, body, path, line)
     "-f",
     "side=RIGHT",
   }
+
+  if start_line ~= line then
+    table.insert(request, "-F")
+    table.insert(request, "start_line=" .. start_line)
+  end
+
   config.log('new_comment request', request)
 
   local resp = parse_or_default(utils.system(request), { errors = {} })

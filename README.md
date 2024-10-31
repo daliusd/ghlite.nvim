@@ -62,6 +62,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>up', ':GHLitePRDiff<cr>',          silent = true },
       { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true },
+      { '<leader>ua', ':GHLitePRAddComment<cr>',    mode = 'v',   silent = true },
       { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true },
       { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true },
       { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true },
@@ -193,6 +194,9 @@ branch, then you will be shown that some things are missing in your branch.
 ### GHLitePRAddComment
 
 This command opens buffer where you can write your comment.
+
+If you want to create multi-line comment then select multiple lines using
+visual mode.
 
 Supported key bindings:
 

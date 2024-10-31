@@ -9,7 +9,8 @@ function M.convert_comment(comment)
     id = comment.id,
     url = comment.html_url,
     path = comment.path,
-    line = comment.start_line ~= vim.NIL and comment.start_line or comment.line,
+    line = comment.line,
+    start_line = comment.start_line,
     user = comment.user.login,
     body = comment.body,
     updated_at = comment.updated_at,
@@ -25,12 +26,16 @@ end
 --- @param comments Comment[]
 function M.prepare_content(comments)
   local content = ''
+  if #comments > 0 and comments[1].start_line ~= vim.NIL and comments[1].start_line ~= comments[1].line then
+    content = string.format('📓 Comment on lines %d to %d\n\n', comments[1].start_line, comments[1].line)
+  end
+
   for _, comment in pairs(comments) do
     content = content .. format_comment(comment)
   end
 
   if #comments > 0 then
-    content = content .. '\n' .. comments[1].diff_hunk .. '\n'
+    content = content .. '\n🪓 Diff hunk:\n' .. comments[1].diff_hunk .. '\n'
   end
 
   return content
@@ -59,6 +64,7 @@ function M.group_comments(gh_comments)
     local grouped_comments = {
       id = comments[1].id,
       line = comments[1].line,
+      start_line = comments[1].start_line,
       url = comments[#comments].url,
       content = M.prepare_content(comments),
       comments = comments,

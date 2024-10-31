@@ -138,12 +138,21 @@ end
 
 local function get_current_filename_and_line()
   local current_buf = vim.api.nvim_get_current_buf()
-  local current_line = vim.api.nvim_win_get_cursor(0)[1]
+  local current_start_line = vim.fn.line("'<")
+  local current_line = vim.fn.line("'>")
+
+  if current_line == 0 then
+    current_start_line = vim.api.nvim_win_get_cursor(0)[1]
+    current_line = current_start_line
+  end
+
   local current_filename = vim.api.nvim_buf_get_name(current_buf)
 
   if current_buf == state.diff_buffer_id then
-    local info = state.diff_line_to_filename_line[current_line]
+    local info = state.diff_line_to_filename_line[current_start_line]
     current_filename = info[1]
+    current_start_line = info[2]
+    info = state.diff_line_to_filename_line[current_line]
     current_line = info[2]
   else
     local is_pr_checked_out = pr_utils.is_pr_checked_out()
@@ -157,12 +166,18 @@ local function get_current_filename_and_line()
     end
   end
 
-  return current_filename, current_line
+  return current_filename, current_start_line, current_line
 end
 
 M.comment_on_line = function()
-  local current_filename, current_line = get_current_filename_and_line()
-  if current_filename == nil or current_line == nil then
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
+    vim.notify('No PR selected/checked out', vim.log.levels.WARN)
+    return
+  end
+
+  local current_filename, current_start_line, current_line = get_current_filename_and_line()
+  if current_filename == nil or current_start_line == nil or current_line == nil then
     vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
   end
@@ -187,7 +202,10 @@ M.comment_on_line = function()
     end
     local input = table.concat(input_lines, "\n")
 
-    local conversations = M.get_conversations(current_filename, current_line)
+    local conversations = {}
+    if current_start_line == current_line then
+      conversations = M.get_conversations(current_filename, current_line)
+    end
 
     --- @param grouped_comment GroupedComment
     local function reply(grouped_comment)
@@ -224,13 +242,15 @@ M.comment_on_line = function()
     else
       local git_root = utils.get_git_root()
       if current_filename:sub(1, #git_root) == git_root then
-        local resp = gh.new_comment(state.selected_PR, input, current_filename:sub(#git_root + 2), current_line)
+        local resp = gh.new_comment(state.selected_PR, input,
+          current_filename:sub(#git_root + 2), current_start_line, current_line)
         if resp['errors'] == nil then
           local new_comment = comments_utils.convert_comment(resp)
           --- @type GroupedComment
           local new_comment_group = {
             id = resp.id,
             line = current_line,
+            start_line = current_start_line,
             url = resp.html_url,
             comments = { new_comment },
             content = comments_utils.prepare_content({ new_comment }),
@@ -258,7 +278,7 @@ M.comment_on_line = function()
 end
 
 M.open_comment = function()
-  local current_filename, current_line = get_current_filename_and_line()
+  local current_filename, _, current_line = get_current_filename_and_line()
   if current_filename == nil then
     vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
@@ -348,7 +368,7 @@ local function edit_comment_body(comment, conversation)
 end
 
 M.update_comment = function()
-  local current_filename, current_line = get_current_filename_and_line()
+  local current_filename, _, current_line = get_current_filename_and_line()
   if current_filename == nil then
     vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
@@ -378,7 +398,7 @@ M.update_comment = function()
 end
 
 M.delete_comment = function()
-  local current_filename, current_line = get_current_filename_and_line()
+  local current_filename, _, current_line = get_current_filename_and_line()
   if current_filename == nil then
     vim.notify('You are on a branch without PR.', vim.log.levels.WARN)
     return
