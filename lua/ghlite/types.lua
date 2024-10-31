@@ -24,3 +24,4 @@
 --- @field baseRefName string
 --- @field headRefName string
 --- @field headRefOid string
+--- @field reviewDecision string

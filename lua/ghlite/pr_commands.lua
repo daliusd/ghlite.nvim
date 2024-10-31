@@ -106,6 +106,7 @@ function M.load_pr_view()
 
   table.insert(pr_view, '')
   table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
+  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
 
   if #pr_info.comments > 0 then
     table.insert(pr_view, '')
@@ -139,6 +140,8 @@ function M.load_pr_view()
 
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
     { noremap = true, silent = true, callback = M.approve_pr })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
+    { noremap = true, silent = true, callback = M.merge_pr })
 
   vim.notify('PR view loaded.')
 end
@@ -152,6 +155,22 @@ function M.approve_pr()
   vim.notify('PR approve started...')
   gh.approve_pr(selected_pr.number)
   vim.notify('PR approved.')
+end
+
+function M.merge_pr()
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
+    vim.notify('No PR selected to merge', vim.log.levels.ERROR)
+  end
+
+  vim.notify('PR merge started...')
+  if selected_pr.reviewDecision == 'APPROVED' then
+    gh.merge_pr(selected_pr.number, config.s.merge.approved)
+  else
+    gh.merge_pr(selected_pr.number, config.s.merge.nonapproved)
+  end
+
+  vim.notify('PR merged.')
 end
 
 return M

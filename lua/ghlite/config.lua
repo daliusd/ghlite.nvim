@@ -7,6 +7,10 @@ M.s = {
   diff_split = 'vsplit',
   comment_split = 'split',
   open_command = 'open',
+  merge = {
+    approved = '--squash',
+    nonapproved = '--auto --squash',
+  },
   keymaps = {
     diff = {
       open_file = 'gf',
@@ -20,6 +24,7 @@ M.s = {
     },
     pr = {
       approve = '<C-A>',
+      merge = '<C-M>',
     },
   },
 }

@@ -18,7 +18,7 @@ local function parse_or_default(str, default)
 end
 
 function M.get_current_pr()
-  local result = utils.system_str('gh pr view --json headRefName,headRefOid,number,baseRefName')
+  local result = utils.system_str('gh pr view --json headRefName,headRefOid,number,baseRefName,reviewDecision')
   if result[1] == nil then
     return nil
   end
@@ -174,6 +174,10 @@ end
 
 function M.get_pr_diff(number)
   return utils.system_str(f('gh pr diff %s', number))
+end
+
+function M.merge_pr(number, options)
+  return utils.system_str(f('gh pr merge %s %s', number, options))
 end
 
 function M.get_user()

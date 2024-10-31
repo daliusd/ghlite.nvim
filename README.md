@@ -32,6 +32,10 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer
         comment_split = 'split', -- set to empty string '' to open in active buffer
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
+        merge = {
+          approved = '--squash',
+          nonapproved = '--auto --squash',
+        },
         keymaps = { -- override default keymaps with the ones you prefer
           diff = {
             open_file = 'gf',
@@ -45,6 +49,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           },
           pr = {
             approve = '<C-A>',
+            merge = '<C-M>',
           },
         },
       })
@@ -134,12 +139,21 @@ Supported key bindings:
 
 * `Ctrl-a` to approve PR
 
+* `Ctrl-m` to merge PR (see `GHLitePRMerge` for details)
+
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.
 
 ### GHLitePRApprove
 
-This command approves active PR.
+This command approves selected PR.
+
+### GHLitePRMerge
+
+This command merges selected PR. Approved and non-approved PRs use different
+options when running `gh pr merge` command. Check `gh pr merge -h` for
+available options and use them in config's `merge` section if defaults are not
+working for you.
 
 ### GHLitePRLoadComments
 
