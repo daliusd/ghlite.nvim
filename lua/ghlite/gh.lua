@@ -5,12 +5,17 @@ local comments_utils = require "ghlite.comments_utils"
 require "ghlite.types"
 
 local f = string.format
-local json = {
-  parse = vim.fn.json_decode,
-  stringify = vim.fn.json_encode
-}
 
 local M = {}
+
+local function parse_or_default(str, default)
+  local success, result = pcall(vim.fn.json_decode, str)
+  if success then
+    return result
+  end
+
+  return default
+end
 
 function M.get_current_pr()
   local result = utils.system_str('gh pr view --json headRefName,headRefOid,number,baseRefName')
@@ -18,7 +23,7 @@ function M.get_current_pr()
     return nil
   end
 
-  return json.parse(result)
+  return parse_or_default(result, nil)
 end
 
 function M.get_pr_info(pr_number)
@@ -29,7 +34,7 @@ function M.get_pr_info(pr_number)
     return nil
   end
 
-  return json.parse(result)
+  return parse_or_default(result, nil)
 end
 
 local function get_repo()
@@ -41,7 +46,7 @@ function M.load_comments(pr_number)
   local repo = get_repo()
   config.log("repo", repo)
 
-  local comments = json.parse(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr_number)))
+  local comments = parse_or_default(utils.system_str(f("gh api repos/%s/pulls/%d/comments", repo, pr_number)), {})
   config.log("comments", comments)
 
   local function is_valid_comment(comment)
@@ -75,7 +80,7 @@ function M.reply_to_comment(pr_number, body, reply_to)
   }
   config.log('reply_to_comment request', request)
 
-  local resp = json.parse(utils.system(request))
+  local resp = parse_or_default(utils.system(request), { errors = {} })
 
   config.log("reply_to_comment resp", resp)
   return resp
@@ -104,7 +109,7 @@ function M.new_comment(selected_pr, body, path, line)
   }
   config.log('new_comment request', request)
 
-  local resp = json.parse(utils.system(request))
+  local resp = parse_or_default(utils.system(request), { errors = {} })
 
   config.log("new_comment resp", resp)
   return resp
@@ -124,7 +129,7 @@ function M.update_comment(comment_id, body)
   }
   config.log('update_comment request', request)
 
-  local resp = json.parse(utils.system(request))
+  local resp = parse_or_default(utils.system(request), { errors = {} })
 
   config.log("update_comment resp", resp)
   return resp
@@ -149,8 +154,8 @@ function M.delete_comment(comment_id)
 end
 
 function M.get_pr_list()
-  local resp = json.parse(utils.system_str(
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName'))
+  local resp = parse_or_default(utils.system_str(
+    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName'), {})
 
   return resp
 end

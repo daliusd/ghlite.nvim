@@ -9,7 +9,7 @@ local function ui_selectPR(prompt, callback)
   local prs = gh.get_pr_list()
 
   if #prs == 0 then
-    vim.notify('No PRs found', vim.log.levels.WARN)
+    vim.notify('No PRs found. Make sure you have `gh` configured.', vim.log.levels.WARN)
     return
   end
 
