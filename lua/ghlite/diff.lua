@@ -111,7 +111,7 @@ function M.load_pr_diffview()
     return
   end
 
-  vim.cmd(string.format('DiffviewOpen %s..%s', selected_pr.baseRefName, selected_pr.headRefName))
+  vim.cmd(string.format('DiffviewOpen origin/%s..origin/%s', selected_pr.baseRefName, selected_pr.headRefName))
 end
 
 return M
