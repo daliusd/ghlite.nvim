@@ -163,6 +163,7 @@ function M.get_pr_list()
   local resp = parse_or_default(utils.system_str(
       'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels'),
     {})
+  config.log("get_pr_list resp", resp)
 
   return resp
 end
