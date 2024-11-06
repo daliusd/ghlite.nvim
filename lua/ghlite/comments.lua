@@ -182,6 +182,12 @@ M.comment_on_line = function()
     return
   end
 
+  local git_root = utils.get_git_root()
+  if current_filename:sub(1, #git_root) ~= git_root then
+    vim.notify('File is not under git folder.', vim.log.levels.ERROR)
+    return
+  end
+
   local buf = vim.api.nvim_create_buf(false, true)
 
   vim.bo[buf].buftype = 'nofile'
@@ -240,7 +246,6 @@ M.comment_on_line = function()
         end
       )
     else
-      local git_root = utils.get_git_root()
       if current_filename:sub(1, #git_root) == git_root then
         local resp = gh.new_comment(state.selected_PR, input,
           current_filename:sub(#git_root + 2), current_start_line, current_line)
