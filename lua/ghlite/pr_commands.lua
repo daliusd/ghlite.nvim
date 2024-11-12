@@ -107,6 +107,7 @@ function M.load_pr_view()
   table.insert(pr_view, '')
   table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
   table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
+  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
 
   if #pr_info.comments > 0 then
     table.insert(pr_view, '')
@@ -142,9 +143,65 @@ function M.load_pr_view()
     { noremap = true, silent = true, callback = M.approve_pr })
   vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
     { noremap = true, silent = true, callback = M.merge_pr })
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '',
+    {
+      noremap = true,
+      silent = true,
+      callback = function()
+        M.comment_on_pr(M.load_pr_view)
+      end
+    })
 
   vim.notify('PR view loaded.')
 end
+
+M.comment_on_pr = function(on_success)
+  local selected_pr = pr_utils.get_selected_pr()
+  if selected_pr == nil then
+    vim.notify('No PR selected/checked out', vim.log.levels.WARN)
+    return
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'markdown'
+
+  if config.s.comment_split then
+    vim.api.nvim_command(config.s.comment_split)
+  end
+  vim.api.nvim_set_current_buf(buf)
+  local prompt = "<!-- Type your PR comment and press " .. config.s.keymaps.comment.send_comment .. ": -->"
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
+  vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+  local function capture_input_and_close()
+    local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    if input_lines[1] == prompt then
+      table.remove(input_lines, 1)
+    end
+    local input = table.concat(input_lines, "\n")
+
+    vim.cmd('bwipeout')
+
+    local resp = gh.new_pr_comment(state.selected_PR, input)
+    if resp ~= nil then
+      vim.notify('Comment sent.')
+      if type(on_success) == "function" then
+        on_success()
+      end
+    else
+      vim.notify('Failed to send comment.', vim.log.levels.WARN)
+    end
+  end
+
+  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
+    { noremap = true, silent = true, callback = capture_input_and_close })
+  vim.api.nvim_buf_set_keymap(buf, 'i', config.s.keymaps.comment.send_comment, '',
+    { noremap = true, silent = true, callback = capture_input_and_close })
+end
+
+
 
 function M.approve_pr()
   local selected_pr = pr_utils.get_selected_pr()

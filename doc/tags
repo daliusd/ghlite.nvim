@@ -1,4 +1,5 @@
 :GHLitePRAddComment	ghlite.txt	/*:GHLitePRAddComment*
+:GHLitePRAddPRComment	ghlite.txt	/*:GHLitePRAddPRComment*
 :GHLitePRApprove	ghlite.txt	/*:GHLitePRApprove*
 :GHLitePRCheckout	ghlite.txt	/*:GHLitePRCheckout*
 :GHLitePRDeleteComment	ghlite.txt	/*:GHLitePRDeleteComment*

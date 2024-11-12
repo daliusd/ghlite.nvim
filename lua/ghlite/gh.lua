@@ -121,6 +121,31 @@ function M.new_comment(selected_pr, body, path, start_line, line)
   return resp
 end
 
+function M.new_pr_comment(selected_pr, body)
+  local repo = get_repo()
+
+  local request = {
+    'gh',
+    'pr',
+    'comment',
+    f("%d", selected_pr.number),
+    "--body",
+    body,
+  }
+
+  config.log('new_pr_comment request', request)
+
+  local result = utils.system(request)
+
+  config.log("new_pr_comment resp", result)
+
+  if result[1] == nil then
+    return nil
+  end
+
+  return result
+end
+
 function M.update_comment(comment_id, body)
   local repo = get_repo()
 

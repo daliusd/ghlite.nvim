@@ -171,6 +171,11 @@ available options and use them in config's `merge` section if defaults are not
 working for you.
 
 ==============================================================================
+:GHLitePRAddPRComment               *:GHLitePRAddPRComment*
+
+This command allows to comment on PR at top level (vs commenting on the code).
+
+==============================================================================
 :GHLitePRLoadComments               *:GHLitePRLoadComments*
 
 This command loads PR comments. Only non-outdated review comments are loaded,

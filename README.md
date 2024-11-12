@@ -50,6 +50,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           pr = {
             approve = '<C-A>',
             merge = '<C-M>',
+            comment = '<C-N>',
           },
         },
       })
@@ -155,6 +156,10 @@ This command merges selected PR. Approved and non-approved PRs use different
 options when running `gh pr merge` command. Check `gh pr merge -h` for
 available options and use them in config's `merge` section if defaults are not
 working for you.
+
+### GHLitePRAddPRComment
+
+This command allows to comment on PR at top level (vs commenting on the code).
 
 ### GHLitePRLoadComments
 

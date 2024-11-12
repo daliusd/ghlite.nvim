@@ -25,6 +25,7 @@ M.s = {
     pr = {
       approve = '<C-A>',
       merge = '<C-M>',
+      comment = '<C-N>',
     },
   },
 }
