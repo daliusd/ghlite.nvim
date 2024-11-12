@@ -115,7 +115,7 @@ function M.load_pr_view()
     table.insert(pr_view, '')
 
     for _, comment in pairs(pr_info.comments) do
-      table.insert(pr_view, string.format("%s at %s:", comment.author.login, comment.createdAt))
+      table.insert(pr_view, string.format("✍️ %s at %s:", comment.author.login, comment.createdAt))
       local comment_body = string.gsub(comment.body, "\r", "")
       for _, line in ipairs(vim.fn.split(comment_body, '\n')) do
         table.insert(pr_view, line)
