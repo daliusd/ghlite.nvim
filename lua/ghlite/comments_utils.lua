@@ -41,44 +41,45 @@ function M.prepare_content(comments)
   return content
 end
 
-function M.group_comments(gh_comments)
-  --- @type table<number, Comment[]>
-  local comment_groups = {}
-  local base = {}
-  local git_root = utils.get_git_root()
+function M.group_comments(gh_comments, cb)
+  utils.get_git_root(function(git_root)
+    --- @type table<number, Comment[]>
+    local comment_groups = {}
+    local base = {}
 
-  for _, comment in pairs(gh_comments) do
-    if comment.in_reply_to_id == nil then
-      comment_groups[comment.id] = { M.convert_comment(comment) }
-      base[comment.id] = comment.id
-    else
-      table.insert(comment_groups[base[comment.in_reply_to_id]], M.convert_comment(comment))
-      base[comment.id] = base[comment.in_reply_to_id]
+    for _, comment in pairs(gh_comments) do
+      if comment.in_reply_to_id == nil then
+        comment_groups[comment.id] = { M.convert_comment(comment) }
+        base[comment.id] = comment.id
+      else
+        table.insert(comment_groups[base[comment.in_reply_to_id]], M.convert_comment(comment))
+        base[comment.id] = base[comment.in_reply_to_id]
+      end
     end
-  end
 
-  --- @type table<string, GroupedComment[]>
-  local result = {}
-  for _, comments in pairs(comment_groups) do
-    --- @type GroupedComment
-    local grouped_comments = {
-      id = comments[1].id,
-      line = comments[1].line,
-      start_line = comments[1].start_line,
-      url = comments[#comments].url,
-      content = M.prepare_content(comments),
-      comments = comments,
-    }
+    --- @type table<string, GroupedComment[]>
+    local result = {}
+    for _, comments in pairs(comment_groups) do
+      --- @type GroupedComment
+      local grouped_comments = {
+        id = comments[1].id,
+        line = comments[1].line,
+        start_line = comments[1].start_line,
+        url = comments[#comments].url,
+        content = M.prepare_content(comments),
+        comments = comments,
+      }
 
-    local full_path = git_root .. '/' .. comments[1].path
-    if result[full_path] == nil then
-      result[full_path] = { grouped_comments }
-    else
-      table.insert(result[full_path], grouped_comments)
+      local full_path = git_root .. '/' .. comments[1].path
+      if result[full_path] == nil then
+        result[full_path] = { grouped_comments }
+      else
+        table.insert(result[full_path], grouped_comments)
+      end
     end
-  end
 
-  return result
+    cb(result)
+  end)
 end
 
 return M

@@ -1,14 +1,20 @@
 local M = {}
 
-function M.system_str(cmd)
-  local cmd_split = vim.fn.split(cmd, " ");
-  local result = vim.system(cmd_split, { text = true }):wait()
-  return vim.fn.split(result.stdout, '\n')
+function M.system_str_cb(cmd, cb)
+  local cmd_split = vim.split(cmd, " ");
+  vim.system(cmd_split, { text = true }, function(result)
+    if type(cb) == "function" then
+      cb(result.stdout)
+    end
+  end)
 end
 
-function M.system(cmd)
-  local result = vim.system(cmd, { text = true }):wait()
-  return vim.fn.split(result.stdout, '\n')
+function M.system_cb(cmd, cb)
+  vim.system(cmd, { text = true }, function(result)
+    if type(cb) == "function" then
+      cb(result.stdout)
+    end
+  end)
 end
 
 function M.filter_array(arr, condition)
@@ -21,16 +27,22 @@ function M.filter_array(arr, condition)
   return result
 end
 
-function M.split_by_newline(str)
-  return vim.fn.split(str, '\n')
+function M.get_git_root(cb)
+  M.system_str_cb("git rev-parse --show-toplevel", function(result)
+    cb(vim.split(result, '\n')[1])
+  end)
 end
 
-function M.get_git_root()
-  return M.system_str("git rev-parse --show-toplevel")[1]
+function M.get_current_git_branch_name(cb)
+  M.system_str_cb('git branch --show-current', function(result)
+    cb(vim.split(result, '\n')[1])
+  end)
 end
 
-function M.get_current_git_branch_name()
-  return M.system_str('git branch --show-current')[1]
+function M.notify(message, level)
+  vim.schedule(function()
+    vim.notify(message, level)
+  end)
 end
 
 return M
