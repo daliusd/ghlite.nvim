@@ -7,6 +7,7 @@ local pr_utils = require "ghlite.pr_utils"
 local M = {}
 
 local function ui_selectPR(prompt, callback)
+  utils.notify('Loading PR list...')
   gh.get_pr_list(function(prs)
     if #prs == 0 then
       utils.notify('No PRs found. Make sure you have `gh` configured.', vim.log.levels.WARN)
