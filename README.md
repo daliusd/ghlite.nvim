@@ -5,6 +5,8 @@ Neovim plugin to work GitHub PRs quickly.
 Main idea of this plugin to have tools that augment GitHub PR review using web
 instead of replacing it like other plugins do.
 
+[![ghlite.nvim intro](https://img.youtube.com/vi/TwzA3bhLrE4/0.jpg)](https://www.youtube.com/watch?v=TwzA3bhLrE4)
+
 ## Requirements
 
 - nvim 0.10+
