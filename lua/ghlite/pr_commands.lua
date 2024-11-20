@@ -71,7 +71,7 @@ local function show_pr_info(pr_info)
     string.format('#%d %s', pr_info.number, pr_info.title),
     string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
     string.format('URL: %s', pr_info.url),
-    string.format('Changes files: %d', pr_info.changedFiles),
+    string.format('Changed files: %d', pr_info.changedFiles),
   }
 
   if pr_info.isDraft then
