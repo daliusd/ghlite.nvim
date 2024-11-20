@@ -10,8 +10,11 @@ local state = require "ghlite.state"
 local utils = require "ghlite.utils"
 local gh = require "ghlite.gh"
 
+require "ghlite.types"
+
 local M = {}
 
+--- @param cb fun(pr: PullRequest)
 function M.get_selected_pr(cb)
   if state.selected_PR ~= nil then
     return cb(state.selected_PR)

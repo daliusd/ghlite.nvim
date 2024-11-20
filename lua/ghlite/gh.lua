@@ -18,7 +18,7 @@ local function parse_or_default(str, default)
 end
 
 function M.get_current_pr(cb)
-  utils.system_str_cb('gh pr view --json headRefName,headRefOid,number,baseRefName,reviewDecision',
+  utils.system_str_cb('gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision',
     function(result)
       if result == nil then
         cb(nil)
@@ -204,7 +204,7 @@ end
 
 function M.get_pr_list(cb)
   utils.system_str_cb(
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
+    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels',
     function(resp)
       config.log("get_pr_list resp", resp)
       cb(parse_or_default(resp, {}))
