@@ -14,7 +14,7 @@ require "ghlite.types"
 
 local M = {}
 
---- @param cb fun(pr: PullRequest)
+--- @param cb fun(pr: PullRequest | nil)
 function M.get_selected_pr(cb)
   if state.selected_PR ~= nil then
     return cb(state.selected_PR)
