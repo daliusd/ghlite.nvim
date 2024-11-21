@@ -11,6 +11,7 @@ M.s = {
     approved = '--squash',
     nonapproved = '--auto --squash',
   },
+  html_comments_command = { 'lynx', '-stdin', '-dump' },
   keymaps = {
     diff = {
       open_file = 'gf',

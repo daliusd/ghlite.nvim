@@ -38,6 +38,7 @@ function M.get_pr_info(pr_number, cb)
         cb(nil)
         return
       end
+      config.log("get_pr_info resp", result)
 
       cb(parse_or_default(result, nil))
     end)

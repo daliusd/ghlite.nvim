@@ -67,60 +67,72 @@ local function show_pr_info(pr_info)
     return
   end
 
-  local pr_view = {
-    string.format('#%d %s', pr_info.number, pr_info.title),
-    string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
-    string.format('URL: %s', pr_info.url),
-    string.format('Changed files: %d', pr_info.changedFiles),
-  }
-
-  if pr_info.isDraft then
-    table.insert(pr_view, 'Draft')
-  end
-
-  if #pr_info.labels > 0 then
-    local labels = 'Labels: '
-    for idx, label in pairs(pr_info.labels) do
-      labels = labels .. (idx > 1 and ', ' or '') .. label.name
-    end
-    table.insert(pr_view, labels)
-  end
-
-  if #pr_info.reviews > 0 then
-    local reviews = 'Reviews: '
-    for idx, review in pairs(pr_info.reviews) do
-      reviews = reviews .. (idx > 1 and ', ' or '') .. string.format("%s (%s)", review.author.login, review.state)
-    end
-    table.insert(pr_view, reviews)
-  end
-
-  table.insert(pr_view, '')
-  local body = string.gsub(pr_info.body, "\r", "")
-  for _, line in ipairs(vim.split(body, '\n')) do
-    table.insert(pr_view, line)
-  end
-
-  table.insert(pr_view, '')
-  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
-  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
-  table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
-
-  if #pr_info.comments > 0 then
-    table.insert(pr_view, '')
-    table.insert(pr_view, 'Comments:')
-    table.insert(pr_view, '')
-
-    for _, comment in pairs(pr_info.comments) do
-      table.insert(pr_view, string.format("✍️ %s at %s:", comment.author.login, comment.createdAt))
-      local comment_body = string.gsub(comment.body, "\r", "")
-      for _, line in ipairs(vim.split(comment_body, '\n')) do
-        table.insert(pr_view, line)
-      end
-      table.insert(pr_view, '')
-    end
-  end
-
   vim.schedule(function()
+    local pr_view = {
+      string.format('#%d %s', pr_info.number, pr_info.title),
+      string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
+      string.format('URL: %s', pr_info.url),
+      string.format('Changed files: %d', pr_info.changedFiles),
+    }
+
+    if pr_info.isDraft then
+      table.insert(pr_view, 'Draft')
+    end
+
+    if #pr_info.labels > 0 then
+      local labels = 'Labels: '
+      for idx, label in pairs(pr_info.labels) do
+        labels = labels .. (idx > 1 and ', ' or '') .. label.name
+      end
+      table.insert(pr_view, labels)
+    end
+
+    if #pr_info.reviews > 0 then
+      local reviews = 'Reviews: '
+      for idx, review in pairs(pr_info.reviews) do
+        reviews = reviews .. (idx > 1 and ', ' or '') .. string.format("%s (%s)", review.author.login, review.state)
+      end
+      table.insert(pr_view, reviews)
+    end
+
+    table.insert(pr_view, '')
+    local body = string.gsub(pr_info.body, "\r", "")
+    for _, line in ipairs(vim.split(body, '\n')) do
+      table.insert(pr_view, line)
+    end
+
+    table.insert(pr_view, '')
+    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
+    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
+    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
+
+    if #pr_info.comments > 0 then
+      table.insert(pr_view, '')
+      table.insert(pr_view, 'Comments:')
+      table.insert(pr_view, '')
+
+      for _, comment in pairs(pr_info.comments) do
+        table.insert(pr_view, string.format("✍️ %s at %s:", comment.author.login, comment.createdAt))
+
+        local comment_body = string.gsub(comment.body, "\r", "")
+
+        -- NOTE: naive check if it is HTML comment
+        if config.s.html_comments_command ~= false and comment.body:match("<%s*[%w%-]+.-%s*>") ~= nil then
+          local success, result = pcall(function()
+            return vim.system(config.s.html_comments_command, { stdin = comment.body }):wait()
+          end)
+          if success then
+            comment_body = result.stdout
+          end
+        end
+
+        for _, line in ipairs(vim.split(comment_body, '\n')) do
+          table.insert(pr_view, line)
+        end
+        table.insert(pr_view, '')
+      end
+    end
+
     local buf = vim.api.nvim_create_buf(false, true)
 
     vim.bo[buf].buftype = 'nofile'

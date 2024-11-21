@@ -38,6 +38,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           approved = '--squash',
           nonapproved = '--auto --squash',
         },
+        html_comments_command = { 'lynx', '-stdin', '-dump' }, -- command to render HTML comments in PR view
         keymaps = { -- override default keymaps with the ones you prefer
           diff = {
             open_file = 'gf',
@@ -147,6 +148,16 @@ Supported key bindings:
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.
+
+HTML comments is the thing too and they look bad in text. To render HTML as
+text `html_comments_command` settings can be used to specify command. You can
+use any command here that accepts html via stdin and outputs text to stdout. By
+default `lynx` is used, but if something works better for you feel free to use
+it.
+
+Plugin searches for html tag and only then passes comment through
+`html_comments_command`. You can disable this functionality by setting
+`html_comments_command` as `false`.
 
 ### GHLitePRApprove
 
