@@ -28,6 +28,7 @@ local function load_comments_to_quickfix_list()
         table.insert(qf_entries, {
           filename = filename,
           lnum = comment.line,
+          text = comment.content,
         })
       end
     end
