@@ -102,9 +102,18 @@ local function show_pr_info(pr_info)
     end
 
     table.insert(pr_view, '')
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
+    if not utils.is_empty(config.s.keymaps.pr.approve) then
+      table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
+    end
+    if not utils.is_empty(config.s.keymaps.pr.merge) then
+      table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
+    end
+    if not utils.is_empty(config.s.keymaps.pr.comment) then
+      table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
+    end
+    if not utils.is_empty(config.s.keymaps.pr.diff) then
+      table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.diff .. ' to open PR diff')
+    end
 
     if #pr_info.comments > 0 then
       table.insert(pr_view, '')
@@ -148,18 +157,28 @@ local function show_pr_info(pr_info)
     vim.bo[buf].readonly = true
     vim.bo[buf].modifiable = false
 
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
-      { noremap = true, silent = true, callback = M.approve_pr })
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
-      { noremap = true, silent = true, callback = M.merge_pr })
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '',
-      {
-        noremap = true,
-        silent = true,
-        callback = function()
-          M.comment_on_pr(M.load_pr_view)
-        end
-      })
+    if not utils.is_empty(config.s.keymaps.pr.approve) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
+        { noremap = true, silent = true, callback = M.approve_pr })
+    end
+    if not utils.is_empty(config.s.keymaps.pr.merge) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
+        { noremap = true, silent = true, callback = M.merge_pr })
+    end
+    if not utils.is_empty(config.s.keymaps.pr.comment) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '',
+        {
+          noremap = true,
+          silent = true,
+          callback = function()
+            M.comment_on_pr(M.load_pr_view)
+          end
+        })
+    end
+    if not utils.is_empty(config.s.keymaps.pr.diff) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>',
+        { noremap = true, silent = true })
+    end
 
     utils.notify('PR view loaded.')
   end)

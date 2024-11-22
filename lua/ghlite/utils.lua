@@ -27,6 +27,13 @@ function M.filter_array(arr, condition)
   return result
 end
 
+function M.is_empty(value)
+  if value == nil or vim.fn.empty(value) == 1 then
+    return true
+  end
+  return false
+end
+
 function M.get_git_root(cb)
   M.system_str_cb("git rev-parse --show-toplevel", function(result)
     cb(vim.split(result, '\n')[1])

@@ -39,21 +39,24 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           nonapproved = '--auto --squash',
         },
         html_comments_command = { 'lynx', '-stdin', '-dump' }, -- command to render HTML comments in PR view
-        keymaps = { -- override default keymaps with the ones you prefer
+        -- override default keymaps with the ones you prefer
+        -- set keymap to false or '' to disable it
+        keymaps = {
           diff = {
             open_file = 'gf',
-            open_file_tab = 'gt',
-            open_file_split = 'gs',
-            open_file_vsplit = 'gv',
-            approve = '<C-A>',
+            open_file_tab = '',
+            open_file_split = 'o',
+            open_file_vsplit = 'O',
+            approve = 'ca',
           },
           comment = {
-            send_comment = '<C-CR>'
+            send_comment = 'c<CR>' -- this one cannot be disabled
           },
           pr = {
-            approve = '<C-A>',
-            merge = '<C-M>',
-            comment = '<C-N>',
+            approve = 'ca',
+            merge = 'cm',
+            comment = 'cc',
+            diff = 'cp',
           },
         },
       })
@@ -95,7 +98,7 @@ you can do it this way:
   `:GHLitePROpenComment` to open comments in browser.
 
 - Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
-  `Ctrl-a` in diff and pr views.
+  `ca` in diff and pr views.
 
 ### Thorough PR review
 
@@ -123,7 +126,7 @@ only at diff, but at surrounding code as well.
   browser.
 
 - Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
-  `Ctrl-a` in diff and pr views.
+  `ca` in diff and pr views.
 
 ## Commands
 
@@ -142,9 +145,13 @@ This command shows PR information (wrapper for `gh pr view`).
 
 Supported key bindings:
 
-* `Ctrl-a` to approve PR
+* `ca` to approve PR
 
-* `Ctrl-m` to merge PR (see `GHLitePRMerge` for details)
+* `cm` to merge PR (see `GHLitePRMerge` for details)
+
+* `cc` to write top level PR comment
+
+* `cp` to open diff view
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.
@@ -197,7 +204,7 @@ Supported key bindings:
   `:GHLitePRSelect` command and branch is not checked out or you have different
   branch checked out.
 
-* `Ctrl-a` to approve PR
+* `ca` to approve PR
 
 ### GHLitePRDiffview
 
@@ -218,7 +225,7 @@ visual mode.
 
 Supported key bindings:
 
-* ctrl-enter:
+* c-enter:
 
     * If there is already loaded comment on cursor line (using
       `GHLitePRLoadComments` command) then comment is added as reply to thread.

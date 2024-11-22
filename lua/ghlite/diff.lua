@@ -94,16 +94,30 @@ function M.load_pr_diff()
           vim.bo[buf].readonly = true
           vim.bo[buf].modifiable = false
 
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file, '',
-            { noremap = true, silent = true, callback = open_file_from_diff('edit') })
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_tab, '',
-            { noremap = true, silent = true, callback = open_file_from_diff('tabedit') })
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
-            { noremap = true, silent = true, callback = open_file_from_diff('split') })
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_vsplit, '',
-            { noremap = true, silent = true, callback = open_file_from_diff('vsplit') })
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
-            { noremap = true, silent = true, callback = pr_commands.approve_pr })
+          if not utils.is_empty(config.s.keymaps.diff.open_file) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file, '',
+              { noremap = true, silent = true, callback = open_file_from_diff('edit') })
+          end
+
+          if not utils.is_empty(config.s.keymaps.diff.open_file_tab) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_tab, '',
+              { noremap = true, silent = true, callback = open_file_from_diff('tabedit') })
+          end
+
+          if not utils.is_empty(config.s.keymaps.diff.open_file_split) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
+              { noremap = true, silent = true, callback = open_file_from_diff('split') })
+          end
+
+          if not utils.is_empty(config.s.keymaps.diff.open_file_vsplit) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_vsplit, '',
+              { noremap = true, silent = true, callback = open_file_from_diff('vsplit') })
+          end
+
+          if not utils.is_empty(config.s.keymaps.diff.approve) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
+              { noremap = true, silent = true, callback = pr_commands.approve_pr })
+          end
 
           utils.notify('PR diff loaded.')
           utils.notify('Comments on diff load started...')

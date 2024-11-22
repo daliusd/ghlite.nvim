@@ -15,18 +15,19 @@ M.s = {
   keymaps = {
     diff = {
       open_file = 'gf',
-      open_file_tab = 'gt',
-      open_file_split = 'gs',
-      open_file_vsplit = 'gv',
-      approve = '<C-A>',
+      open_file_tab = '',
+      open_file_split = 'o',
+      open_file_vsplit = 'O',
+      approve = 'ca',
     },
     comment = {
-      send_comment = '<C-CR>'
+      send_comment = 'c<CR>'
     },
     pr = {
-      approve = '<C-A>',
-      merge = '<C-M>',
-      comment = '<C-N>',
+      approve = 'ca',
+      merge = 'cm',
+      comment = 'cc',
+      diff = 'cp',
     },
   },
 }
