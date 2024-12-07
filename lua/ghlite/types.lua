@@ -24,6 +24,7 @@
 --- @class PullRequest
 --- @field number number
 --- @field baseRefName string
+--- @field baseRefOid string
 --- @field headRefName string
 --- @field headRefOid string
 --- @field reviewDecision string

@@ -139,7 +139,11 @@ function M.load_pr_diffview()
     end
 
     vim.schedule(function()
-      vim.cmd(string.format('DiffviewOpen origin/%s..origin/%s', selected_pr.baseRefName, selected_pr.headRefName))
+      if selected_pr.baseRefOid then
+        vim.cmd(string.format('DiffviewOpen %s..%s', selected_pr.baseRefOid, selected_pr.headRefOid))
+      else
+        vim.cmd(string.format('DiffviewOpen origin/%s..%s', selected_pr.baseRefName, selected_pr.headRefOid))
+      end
     end)
   end)
 end

@@ -211,10 +211,8 @@ Supported key bindings:
 This command shows PR diff using
 [Diffview.nvim](https://github.com/sindrets/diffview.nvim).
 
-However note that this command shows diff between what's in main branch and PR
-branch. This might be different from what's shown in GitHub. E.g. if there are
-changes in your main branch and your branch does not have changes from main
-branch, then you will be shown that some things are missing in your branch.
+This command will not show correct diff sometimes if you have gh older than
+2.63.0 (details here https://github.com/cli/cli/pull/9938).
 
 ### GHLitePRAddComment
 
