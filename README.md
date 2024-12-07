@@ -211,6 +211,9 @@ Supported key bindings:
 This command shows PR diff using
 [Diffview.nvim](https://github.com/sindrets/diffview.nvim).
 
+This command will not show correct diff sometimes if you have gh older than
+2.63.0 (details here https://github.com/cli/cli/pull/9938).
+
 ### GHLitePRAddComment
 
 This command opens buffer where you can write your comment.
