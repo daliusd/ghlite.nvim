@@ -4,7 +4,11 @@ function M.system_str_cb(cmd, cb)
   local cmd_split = vim.split(cmd, " ");
   vim.system(cmd_split, { text = true }, function(result)
     if type(cb) == "function" then
-      cb(result.stdout)
+      if #result.stdout > 0 then
+        cb(result.stdout)
+      elseif #result.stderr > 0 then
+        cb(result.stderr)
+      end
     end
   end)
 end
