@@ -139,7 +139,7 @@ function M.new_comment(selected_pr, body, path, start_line, line, cb)
   end)
 end
 
-function M.new_pr_comment(selected_pr, body, cb)
+function M.new_pr_comment(selected_pr, body, request_changes, cb)
   get_repo(function(repo)
     local request = {
       'gh',
@@ -149,6 +149,10 @@ function M.new_pr_comment(selected_pr, body, cb)
       "--body",
       body,
     }
+
+    if request_changes then
+      table.insert(request, "-r")
+    end
 
     config.log('new_pr_comment request', request)
 
