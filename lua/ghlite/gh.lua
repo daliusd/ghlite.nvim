@@ -20,12 +20,22 @@ end
 function M.get_current_pr(cb)
   utils.system_str_cb('gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision',
     function(result)
+      local prefix = 'Unknown JSON field'
       if result == nil then
         cb(nil)
         return
+      elseif string.sub(result, 1, #prefix) == prefix then
+        utils.system_str_cb('gh pr view --json headRefName,headRefOid,number,baseRefName,reviewDecision',
+          function(result2)
+            if result2 == nil then
+              cb(nil)
+              return
+            end
+            cb(parse_or_default(result2, nil))
+          end)
+      else
+        cb(parse_or_default(result, nil))
       end
-
-      cb(parse_or_default(result, nil))
     end)
 end
 
@@ -207,7 +217,17 @@ function M.get_pr_list(cb)
     'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels',
     function(resp)
       config.log("get_pr_list resp", resp)
-      cb(parse_or_default(resp, {}))
+      local prefix = 'Unknown JSON field'
+      if string.sub(resp, 1, #prefix) == prefix then
+        utils.system_str_cb(
+          'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
+          function(resp2)
+            config.log("get_pr_list resp", resp2)
+            cb(parse_or_default(resp2, {}))
+          end)
+      else
+        cb(parse_or_default(resp, {}))
+      end
     end
   )
 end
