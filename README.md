@@ -62,17 +62,17 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       })
     end,
     keys = {
-      { '<leader>us', ':GHLitePRSelect<cr>',        silent = true },
-      { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true },
-      { '<leader>uv', ':GHLitePRView<cr>',          silent = true },
-      { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true },
-      { '<leader>up', ':GHLitePRDiff<cr>',          silent = true },
-      { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true },
-      { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true },
-      { '<leader>ua', ':GHLitePRAddComment<cr>',    mode = 'v',   silent = true },
-      { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true },
-      { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true },
-      { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true },
+      { '<leader>us', ':GHLitePRSelect<cr>',        silent = true, desc = 'PR Select' },
+      { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true, desc = 'PR Checkout' },
+      { '<leader>uv', ':GHLitePRView<cr>',          silent = true, desc = 'PR View' },
+      { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true, desc = 'PR Load Comments' },
+      { '<leader>up', ':GHLitePRDiff<cr>',          silent = true, desc = 'PR Diff' },
+      { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true, desc = 'PR Diffview' },
+      { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true, desc = 'PR Add comment' },
+      { '<leader>ua', ':GHLitePRAddComment<cr>',    mode = 'x',    silent = true,             desc = 'PR Add comment' },
+      { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true, desc = 'PR Update comment' },
+      { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true, desc = 'PR Delete comment' },
+      { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true, desc = 'PR Open comment' },
     }
   }
 ```
