@@ -149,7 +149,7 @@ function M.new_comment(selected_pr, body, path, start_line, line, cb)
   end)
 end
 
-function M.new_pr_comment(selected_pr, body, request_changes, cb)
+function M.new_pr_comment(selected_pr, body, cb)
   get_repo(function(repo)
     local request = {
       'gh',
@@ -159,10 +159,6 @@ function M.new_pr_comment(selected_pr, body, request_changes, cb)
       "--body",
       body,
     }
-
-    if request_changes then
-      table.insert(request, "-r")
-    end
 
     config.log('new_pr_comment request', request)
 
@@ -239,6 +235,10 @@ end
 
 function M.approve_pr(number, cb)
   utils.system_str_cb(f('gh pr review %s -a', number), cb)
+end
+
+function M.request_changes_pr(number, cb)
+  utils.system_str_cb(f('gh pr review %s -r', number), cb)
 end
 
 function M.get_pr_diff(number, cb)

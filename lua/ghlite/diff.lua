@@ -119,6 +119,11 @@ function M.load_pr_diff()
               { noremap = true, silent = true, callback = pr_commands.approve_pr })
           end
 
+          if not utils.is_empty(config.s.keymaps.diff.request_changes) then
+            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.request_changes, '',
+              { noremap = true, silent = true, callback = pr_commands.request_changes_pr })
+          end
+
           utils.notify('PR diff loaded.')
           utils.notify('Comments on diff load started...')
           comments.load_comments_only(selected_pr.number, function()

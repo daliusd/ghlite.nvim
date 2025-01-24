@@ -161,6 +161,10 @@ local function show_pr_info(pr_info)
       vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
         { noremap = true, silent = true, callback = M.approve_pr })
     end
+    if not utils.is_empty(config.s.keymaps.pr.request_changes) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.request_changes, '',
+        { noremap = true, silent = true, callback = M.request_changes_pr })
+    end
     if not utils.is_empty(config.s.keymaps.pr.merge) then
       vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
         { noremap = true, silent = true, callback = M.merge_pr })
@@ -217,48 +221,35 @@ M.comment_on_pr = function(on_success)
       end
       vim.api.nvim_set_current_buf(buf)
       local prompt = "<!-- Type your PR comment and press " ..
-          config.s.keymaps.comment.send_comment ..
-          " to comment or " .. config.s.keymaps.comment.request_changes .. " to comment and request changes: -->"
+          config.s.keymaps.comment.send_comment .. " to comment: -->"
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
       vim.api.nvim_win_set_cursor(0, { 2, 0 })
 
-      local function capture_input_and_close(request_changes)
-        return function()
-          local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-          if input_lines[1] == prompt then
-            table.remove(input_lines, 1)
-          end
-          local input = table.concat(input_lines, "\n")
-
-          vim.cmd('bwipeout')
-
-          if request_changes then
-            utils.notify('Sending comment and requesting changes...')
-          else
-            utils.notify('Sending comment...')
-          end
-
-          gh.new_pr_comment(state.selected_PR, input, request_changes, function(resp)
-            if resp ~= nil then
-              if request_changes then
-                utils.notify('Comment sent and changes requested.')
-              else
-                utils.notify('Comment sent.')
-              end
-              if type(on_success) == "function" then
-                on_success()
-              end
-            else
-              utils.notify('Failed to send comment.', vim.log.levels.WARN)
-            end
-          end)
+      local function capture_input_and_close()
+        local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        if input_lines[1] == prompt then
+          table.remove(input_lines, 1)
         end
+        local input = table.concat(input_lines, "\n")
+
+        vim.cmd('bwipeout')
+
+        utils.notify('Sending comment...')
+
+        gh.new_pr_comment(state.selected_PR, input, function(resp)
+          if resp ~= nil then
+            utils.notify('Comment sent.')
+            if type(on_success) == "function" then
+              on_success()
+            end
+          else
+            utils.notify('Failed to send comment.', vim.log.levels.WARN)
+          end
+        end)
       end
 
       vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
-        { noremap = true, silent = true, callback = capture_input_and_close(false) })
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.request_changes, '',
-        { noremap = true, silent = true, callback = capture_input_and_close(true) })
+        { noremap = true, silent = true, callback = capture_input_and_close })
     end)
   end)
 end
@@ -272,6 +263,19 @@ function M.approve_pr()
     utils.notify('PR approve started...')
     gh.approve_pr(selected_pr.number, function()
       utils.notify('PR approved.')
+    end)
+  end)
+end
+
+function M.request_changes_pr()
+  pr_utils.get_selected_pr(function(selected_pr)
+    if selected_pr == nil then
+      utils.notify('No PR selected to request changes', vim.log.levels.ERROR)
+    end
+
+    utils.notify('PR request changes started...')
+    gh.request_changes_pr(selected_pr.number, function()
+      utils.notify('PR changes requested.')
     end)
   end)
 end
