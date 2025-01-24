@@ -105,6 +105,9 @@ local function show_pr_info(pr_info)
     if not utils.is_empty(config.s.keymaps.pr.approve) then
       table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
     end
+    if not utils.is_empty(config.s.keymaps.pr.request_changes) then
+      table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.request_changes .. ' to request PR changes')
+    end
     if not utils.is_empty(config.s.keymaps.pr.merge) then
       table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
     end
