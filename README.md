@@ -100,6 +100,9 @@ you can do it this way:
 - Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
   `ca` in diff and pr views.
 
+- Run `:GHLitePRRequestChanges` to request changes on PR if something is wrong.
+  you can use `cr` in diff and pr views.
+
 ### Thorough PR review
 
 However it might be that you want to make thorough PR review by looking not
@@ -127,6 +130,9 @@ only at diff, but at surrounding code as well.
 
 - Run `:GHLitePRApprove` to approve PR if everything is OK. you can use
   `ca` in diff and pr views.
+
+- Run `:GHLitePRRequestChanges` to request changes on PR if something is wrong.
+  you can use `cr` in diff and pr views.
 
 ## Commands
 
@@ -169,6 +175,10 @@ Plugin searches for html tag and only then passes comment through
 ### GHLitePRApprove
 
 This command approves selected PR.
+
+### GHLitePRRequestChanges
+
+This command request changes on PR.
 
 ### GHLitePRMerge
 

@@ -8,6 +8,7 @@
 :GHLitePRLoadComments	ghlite.txt	/*:GHLitePRLoadComments*
 :GHLitePRMerge	ghlite.txt	/*:GHLitePRMerge*
 :GHLitePROpenComment	ghlite.txt	/*:GHLitePROpenComment*
+:GHLitePRRequestChanges	ghlite.txt	/*:GHLitePRRequestChanges*
 :GHLitePRSelect	ghlite.txt	/*:GHLitePRSelect*
 :GHLitePRUpdateComment	ghlite.txt	/*:GHLitePRUpdateComment*
 :GHLitePRView	ghlite.txt	/*:GHLitePRView*

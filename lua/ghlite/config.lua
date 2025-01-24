@@ -19,13 +19,14 @@ M.s = {
       open_file_split = 'o',
       open_file_vsplit = 'O',
       approve = 'ca',
+      request_changes = 'cr',
     },
     comment = {
       send_comment = 'c<CR>',
-      request_changes = 'C<CR>',
     },
     pr = {
       approve = 'ca',
+      request_changes = 'cr',
       merge = 'cm',
       comment = 'cc',
       diff = 'cp',
