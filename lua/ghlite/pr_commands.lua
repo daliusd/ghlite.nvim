@@ -265,7 +265,7 @@ function M.approve_pr()
 
     utils.notify('PR approve started...')
     gh.approve_pr(selected_pr.number, function()
-      utils.notify('PR approved.')
+      utils.notify('PR approve finished.')
     end)
   end)
 end
@@ -278,7 +278,7 @@ function M.request_changes_pr()
 
     utils.notify('PR request changes started...')
     gh.request_changes_pr(selected_pr.number, function()
-      utils.notify('PR changes requested.')
+      utils.notify('PR request changes finished.')
     end)
   end)
 end
@@ -293,11 +293,11 @@ function M.merge_pr()
     utils.notify('PR merge started...')
     if selected_pr.reviewDecision == 'APPROVED' then
       gh.merge_pr(selected_pr.number, config.s.merge.approved, function()
-        utils.notify('PR merged.')
+        utils.notify('PR merge finished.')
       end)
     else
       gh.merge_pr(selected_pr.number, config.s.merge.nonapproved, function()
-        utils.notify('PR merged.')
+        utils.notify('PR merge finished.')
       end)
     end
   end)

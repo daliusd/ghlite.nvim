@@ -1,14 +1,17 @@
+local config = require "ghlite.config"
+
 local M = {}
 
 function M.system_str_cb(cmd, cb)
   local cmd_split = vim.split(cmd, " ");
   vim.system(cmd_split, { text = true }, function(result)
     if type(cb) == "function" then
-      if #result.stdout > 0 then
-        cb(result.stdout)
-      elseif #result.stderr > 0 then
-        cb(result.stderr)
+      if #result.stderr > 0 then
+        config.log("system_str_cb error", result.stderr)
+        M.notify(result.stderr, vim.log.levels.ERROR)
       end
+
+      cb(result.stdout, result.stderr)
     end
   end)
 end
