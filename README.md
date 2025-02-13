@@ -30,9 +30,9 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
     config = function()
       require('ghlite').setup({
         debug = false, -- if set to true debugging information is written to ~/.ghlite.log file
-        view_split = 'vsplit', -- set to empty string '' to open in active buffer
-        diff_split = 'vsplit', -- set to empty string '' to open in active buffer
-        comment_split = 'split', -- set to empty string '' to open in active buffer
+        view_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
+        diff_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
+        comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         merge = {
           approved = '--squash',
