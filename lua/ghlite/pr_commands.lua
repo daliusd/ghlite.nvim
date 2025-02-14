@@ -146,6 +146,7 @@ local function show_pr_info(pr_info)
     end
 
     local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buf, "PR View: " .. pr_info.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].filetype = 'markdown'
@@ -215,6 +216,7 @@ M.comment_on_pr = function(on_success)
 
     vim.schedule(function()
       local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_name(buf, "PR Comment: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
 
       vim.bo[buf].buftype = 'nofile'
       vim.bo[buf].filetype = 'markdown'

@@ -216,6 +216,8 @@ M.comment_on_line = function()
           end
 
           local buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_name(buf,
+            (#conversations > 0 and "PR reply" or "PR comment") .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
 
           vim.bo[buf].buftype = 'nofile'
           vim.bo[buf].filetype = 'markdown'
@@ -373,6 +375,7 @@ end
 --- @param conversation GroupedComment
 local function edit_comment_body(comment, conversation)
   local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(buf, "PR edit comment" .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
 
   vim.bo[buf].buftype = 'nofile'
   vim.bo[buf].filetype = 'markdown'

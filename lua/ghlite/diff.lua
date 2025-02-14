@@ -78,6 +78,7 @@ function M.load_pr_diff()
       construct_mappings(diff_content_lines, function()
         vim.schedule(function()
           local buf = vim.api.nvim_create_buf(false, true)
+          vim.api.nvim_buf_set_name(buf, "PR Diff: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
           state.diff_buffer_id = buf
 
           vim.bo[buf].buftype = 'nofile'
