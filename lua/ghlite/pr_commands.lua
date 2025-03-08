@@ -215,46 +215,30 @@ M.comment_on_pr = function(on_success)
     end
 
     vim.schedule(function()
-      local buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_name(buf, "PR Comment: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
-
-      vim.bo[buf].buftype = 'nofile'
-      vim.bo[buf].filetype = 'markdown'
-
-      if config.s.comment_split then
-        vim.api.nvim_command(config.s.comment_split)
-      end
-      vim.api.nvim_set_current_buf(buf)
       local prompt = "<!-- Type your PR comment and press " ..
           config.s.keymaps.comment.send_comment .. " to comment: -->"
-      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
-      vim.api.nvim_win_set_cursor(0, { 2, 0 })
 
-      local function capture_input_and_close()
-        local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        if input_lines[1] == prompt then
-          table.remove(input_lines, 1)
-        end
-        local input = table.concat(input_lines, "\n")
+      utils.get_comment(
+        "PR Comment: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+        config.s.comment_split,
+        prompt,
+        { prompt, "" },
+        config.s.keymaps.comment.send_comment,
+        function(input)
+          utils.notify('Sending comment...')
 
-        vim.cmd('bwipeout')
-
-        utils.notify('Sending comment...')
-
-        gh.new_pr_comment(state.selected_PR, input, function(resp)
-          if resp ~= nil then
-            utils.notify('Comment sent.')
-            if type(on_success) == "function" then
-              on_success()
+          gh.new_pr_comment(state.selected_PR, input, function(resp)
+            if resp ~= nil then
+              utils.notify('Comment sent.')
+              if type(on_success) == "function" then
+                on_success()
+              end
+            else
+              utils.notify('Failed to send comment.', vim.log.levels.WARN)
             end
-          else
-            utils.notify('Failed to send comment.', vim.log.levels.WARN)
-          end
-        end)
-      end
-
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
-        { noremap = true, silent = true, callback = capture_input_and_close })
+          end)
+        end
+      )
     end)
   end)
 end
@@ -278,9 +262,23 @@ function M.request_changes_pr()
       utils.notify('No PR selected to request changes', vim.log.levels.ERROR)
     end
 
-    utils.notify('PR request changes started...')
-    gh.request_changes_pr(selected_pr.number, function()
-      utils.notify('PR request changes finished.')
+    vim.schedule(function()
+      local prompt = "<!-- Type your comment and press " ..
+          config.s.keymaps.comment.send_comment .. " to request PR changes: -->"
+
+      utils.get_comment(
+        "PR Request Changes: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+        config.s.comment_split,
+        prompt,
+        { prompt, "" },
+        config.s.keymaps.comment.send_comment,
+        function(input)
+          utils.notify('PR request changes started...')
+          gh.request_changes_pr(selected_pr.number, input, function()
+            utils.notify('PR request changes finished.')
+          end)
+        end
+      )
     end)
   end)
 end

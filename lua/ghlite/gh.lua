@@ -150,22 +150,20 @@ function M.new_comment(selected_pr, body, path, start_line, line, cb)
 end
 
 function M.new_pr_comment(selected_pr, body, cb)
-  get_repo(function(repo)
-    local request = {
-      'gh',
-      'pr',
-      'comment',
-      f("%d", selected_pr.number),
-      "--body",
-      body,
-    }
+  local request = {
+    'gh',
+    'pr',
+    'comment',
+    f("%d", selected_pr.number),
+    "--body",
+    body,
+  }
 
-    config.log('new_pr_comment request', request)
+  config.log('new_pr_comment request', request)
 
-    local result = utils.system_cb(request, function(result)
-      config.log("new_pr_comment resp", result)
-      cb(result)
-    end)
+  local result = utils.system_cb(request, function(result)
+    config.log("new_pr_comment resp", result)
+    cb(result)
   end)
 end
 
@@ -237,8 +235,23 @@ function M.approve_pr(number, cb)
   utils.system_str_cb(f('gh pr review %s -a', number), cb)
 end
 
-function M.request_changes_pr(number, cb)
-  utils.system_str_cb(f('gh pr review %s -r', number), cb)
+function M.request_changes_pr(number, body, cb)
+  local request = {
+    'gh',
+    'pr',
+    'review',
+    f("%d", number),
+    '-r',
+    "--body",
+    body,
+  }
+
+  config.log('request_changes_pr request', request)
+
+  local result = utils.system_cb(request, function(result)
+    config.log("request_changes_pr resp", result)
+    cb(result)
+  end)
 end
 
 function M.get_pr_diff(number, cb)

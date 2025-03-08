@@ -215,101 +215,82 @@ M.comment_on_line = function()
             conversations = M.get_conversations(current_filename, current_line)
           end
 
-          local buf = vim.api.nvim_create_buf(false, true)
-          vim.api.nvim_buf_set_name(buf,
-            (#conversations > 0 and "PR reply" or "PR comment") .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
-
-          vim.bo[buf].buftype = 'nofile'
-          vim.bo[buf].filetype = 'markdown'
-
-          if config.s.comment_split then
-            vim.api.nvim_command(config.s.comment_split)
-          end
-          vim.api.nvim_set_current_buf(buf)
           local prompt = "<!-- Type your " ..
               (#conversations > 0 and "reply" or "comment") ..
               " and press " .. config.s.keymaps.comment.send_comment .. ": -->"
-          vim.api.nvim_buf_set_lines(buf, 0, -1, false, { prompt, "" })
-          vim.api.nvim_win_set_cursor(0, { 2, 0 })
 
-          local function capture_input_and_close()
-            local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-            if input_lines[1] == prompt then
-              table.remove(input_lines, 1)
-            end
-            local input = table.concat(input_lines, "\n")
-
-            --- @param grouped_comment GroupedComment
-            local function reply(grouped_comment)
-              utils.notify('Sending reply...')
-              gh.reply_to_comment(state.selected_PR.number, input, grouped_comment.id, function(resp)
-                if resp['errors'] == nil then
-                  utils.notify('Reply sent.')
-                  local new_comment = comments_utils.convert_comment(resp)
-                  table.insert(grouped_comment.comments, new_comment)
-                  grouped_comment.content = comments_utils.prepare_content(grouped_comment.comments)
-                  M.load_comments_on_current_buffer()
-                else
-                  utils.notify('Failed to reply to comment.', vim.log.levels.WARN)
-                end
-              end)
-            end
-
-            vim.cmd('bwipeout')
-
-            if #conversations == 1 then
-              reply(conversations[1])
-            elseif #conversations > 1 then
-              vim.ui.select(
-                conversations,
-                {
-                  prompt = 'Select comment to reply to:',
-                  format_item = function(comment)
-                    return string.format('%s', vim.split(comment.content, '\n')[1])
-                  end,
-                },
-                function(comment)
-                  if comment ~= nil then
-                    reply(comment)
+          utils.get_comment(
+            (#conversations > 0 and "PR reply" or "PR comment") .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+            config.s.comment_split,
+            prompt,
+            { prompt, "" },
+            config.s.keymaps.comment.send_comment,
+            function(input)
+              --- @param grouped_comment GroupedComment
+              local function reply(grouped_comment)
+                utils.notify('Sending reply...')
+                gh.reply_to_comment(state.selected_PR.number, input, grouped_comment.id, function(resp)
+                  if resp['errors'] == nil then
+                    utils.notify('Reply sent.')
+                    local new_comment = comments_utils.convert_comment(resp)
+                    table.insert(grouped_comment.comments, new_comment)
+                    grouped_comment.content = comments_utils.prepare_content(grouped_comment.comments)
+                    M.load_comments_on_current_buffer()
+                  else
+                    utils.notify('Failed to reply to comment.', vim.log.levels.WARN)
                   end
-                end
-              )
-            else
-              if current_filename:sub(1, #git_root) == git_root then
-                utils.notify('Sending comment...')
-                gh.new_comment(state.selected_PR, input,
-                  current_filename:sub(#git_root + 2), current_start_line, current_line, function(resp)
-                    if resp['errors'] == nil then
-                      local new_comment = comments_utils.convert_comment(resp)
-                      --- @type GroupedComment
-                      local new_comment_group = {
-                        id = resp.id,
-                        line = current_line,
-                        start_line = current_start_line,
-                        url = resp.html_url,
-                        comments = { new_comment },
-                        content = comments_utils.prepare_content({ new_comment }),
-                      }
-                      if state.comments_list[current_filename] == nil then
-                        state.comments_list[current_filename] = { new_comment_group }
-                      else
-                        table.insert(state.comments_list[current_filename], new_comment_group)
-                      end
+                end)
+              end
 
-                      utils.notify('Comment sent.')
-                      M.load_comments_on_current_buffer()
-                    else
-                      utils.notify('Failed to send comment.', vim.log.levels.WARN)
+              if #conversations == 1 then
+                reply(conversations[1])
+              elseif #conversations > 1 then
+                vim.ui.select(
+                  conversations,
+                  {
+                    prompt = 'Select comment to reply to:',
+                    format_item = function(comment)
+                      return string.format('%s', vim.split(comment.content, '\n')[1])
+                    end,
+                  },
+                  function(comment)
+                    if comment ~= nil then
+                      reply(comment)
                     end
-                  end)
+                  end
+                )
+              else
+                if current_filename:sub(1, #git_root) == git_root then
+                  utils.notify('Sending comment...')
+                  gh.new_comment(state.selected_PR, input,
+                    current_filename:sub(#git_root + 2), current_start_line, current_line, function(resp)
+                      if resp['errors'] == nil then
+                        local new_comment = comments_utils.convert_comment(resp)
+                        --- @type GroupedComment
+                        local new_comment_group = {
+                          id = resp.id,
+                          line = current_line,
+                          start_line = current_start_line,
+                          url = resp.html_url,
+                          comments = { new_comment },
+                          content = comments_utils.prepare_content({ new_comment }),
+                        }
+                        if state.comments_list[current_filename] == nil then
+                          state.comments_list[current_filename] = { new_comment_group }
+                        else
+                          table.insert(state.comments_list[current_filename], new_comment_group)
+                        end
+
+                        utils.notify('Comment sent.')
+                        M.load_comments_on_current_buffer()
+                      else
+                        utils.notify('Failed to send comment.', vim.log.levels.WARN)
+                      end
+                    end)
+                end
               end
             end
-          end
-
-          vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
-            { noremap = true, silent = true, callback = capture_input_and_close })
-          vim.api.nvim_buf_set_keymap(buf, 'i', config.s.keymaps.comment.send_comment, '',
-            { noremap = true, silent = true, callback = capture_input_and_close })
+          )
         end)
       end)
     end)
@@ -374,42 +355,29 @@ end
 --- @param comment Comment
 --- @param conversation GroupedComment
 local function edit_comment_body(comment, conversation)
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_name(buf, "PR edit comment" .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
+  local prompt = "<!-- Change your comment and press " .. config.s.keymaps.comment.send_comment .. ": -->"
 
-  vim.bo[buf].buftype = 'nofile'
-  vim.bo[buf].filetype = 'markdown'
+  utils.get_comment(
+    "PR edit comment" .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+    config.s.comment_split,
+    prompt,
+    vim.split(prompt .. '\n' .. comment.body, '\n'),
+    config.s.keymaps.comment.send_comment,
+    function(input)
+      utils.notify('Updating comment...')
+      gh.update_comment(comment.id, input, function(resp)
+        if resp['errors'] == nil then
+          utils.notify('Comment updated.')
+          comment.body = resp.body
+          conversation.content = comments_utils.prepare_content(conversation.comments)
 
-  if config.s.comment_split then
-    vim.api.nvim_command(config.s.comment_split)
-  end
-  vim.api.nvim_set_current_buf(buf)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(comment.body, '\n'))
-
-  local function capture_input_and_close()
-    local input_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    local input = table.concat(input_lines, "\n")
-
-    vim.cmd('bwipeout')
-
-    utils.notify('Updating comment...')
-    gh.update_comment(comment.id, input, function(resp)
-      if resp['errors'] == nil then
-        utils.notify('Comment updated.')
-        comment.body = resp.body
-        conversation.content = comments_utils.prepare_content(conversation.comments)
-
-        M.load_comments_on_current_buffer()
-      else
-        utils.notify('Failed to update the comment.', vim.log.levels.ERROR)
-      end
-    end)
-  end
-
-  vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.send_comment, '',
-    { noremap = true, silent = true, callback = capture_input_and_close })
-  vim.api.nvim_buf_set_keymap(buf, 'i', config.s.keymaps.comment.send_comment, '',
-    { noremap = true, silent = true, callback = capture_input_and_close })
+          M.load_comments_on_current_buffer()
+        else
+          utils.notify('Failed to update the comment.', vim.log.levels.ERROR)
+        end
+      end)
+    end
+  )
 end
 
 M.update_comment = function()
