@@ -47,14 +47,16 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             open_file_tab = '',
             open_file_split = 'o',
             open_file_vsplit = 'O',
-            approve = 'ca',
+            approve = 'cA',
+            request_changes = 'cR',
           },
           comment = {
             send_comment = 'c<CR>' -- this one cannot be disabled
           },
           pr = {
-            approve = 'ca',
-            merge = 'cm',
+            approve = 'cA',
+            request_changes = 'cR',
+            merge = 'cM',
             comment = 'cc',
             diff = 'cp',
           },
