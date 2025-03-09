@@ -57,7 +57,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             approve = 'cA',
             request_changes = 'cR',
             merge = 'cM',
-            comment = 'cc',
+            comment = 'ca',
             diff = 'cp',
           },
         },
@@ -153,11 +153,11 @@ This command shows PR information (wrapper for `gh pr view`).
 
 Supported key bindings:
 
-* `ca` to approve PR
+* `cA` to approve PR
 
-* `cm` to merge PR (see `GHLitePRMerge` for details)
+* `cM` to merge PR (see `GHLitePRMerge` for details)
 
-* `cc` to write top level PR comment
+* `ca` to write top level PR comment
 
 * `cp` to open diff view
 
@@ -216,7 +216,7 @@ Supported key bindings:
   `:GHLitePRSelect` command and branch is not checked out or you have different
   branch checked out.
 
-* `ca` to approve PR
+* `cA` to approve PR
 
 ### GHLitePRDiffview
 

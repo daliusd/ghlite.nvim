@@ -28,7 +28,7 @@ M.s = {
       approve = 'cA',
       request_changes = 'cR',
       merge = 'cM',
-      comment = 'cc',
+      comment = 'ca',
       diff = 'cp',
     },
   },
