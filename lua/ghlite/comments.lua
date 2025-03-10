@@ -82,33 +82,22 @@ M.load_comments_on_buffer = function(bufnr)
     return
   end
 
+  local buf_name = vim.api.nvim_buf_get_name(bufnr)
+
+  if M.is_in_diffview(buf_name) then
+    M.get_diffview_filename(buf_name, function(filename)
+      M.load_comments_on_buffer_by_filename(bufnr, filename)
+    end)
+
+    return
+  end
+
   pr_utils.is_pr_checked_out(function(is_pr_checked_out)
     if not is_pr_checked_out then
       return
     end
 
-    vim.schedule(function()
-      local filename = vim.api.nvim_buf_get_name(bufnr)
-
-      config.log('load_comments_on_buffer filename', filename)
-      if state.comments_list[filename] ~= nil then
-        local diagnostics = {}
-        for _, comment in pairs(state.comments_list[filename]) do
-          if #comment.comments > 0 then
-            config.log('comment to diagnostics', comment)
-            table.insert(diagnostics, {
-              lnum = comment.line - 1,
-              col = 0,
-              message = comment.content,
-              severity = vim.diagnostic.severity.INFO,
-              source = "GHLite",
-            })
-          end
-        end
-
-        vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteNamespace"), bufnr, diagnostics, {})
-      end
-    end)
+    M.load_comments_on_buffer_by_filename(bufnr, buf_name)
   end)
 end
 
@@ -170,6 +159,10 @@ local function get_current_filename_and_line(cb)
       current_start_line = info[2]
       info = state.diff_line_to_filename_line[current_line]
       current_line = info[2]
+    elseif M.is_in_diffview(current_filename) then
+      M.get_diffview_filename(current_filename, function(filename)
+        cb(filename, current_start_line, current_line)
+      end)
     else
       pr_utils.is_pr_checked_out(function(is_pr_checked_out)
         pr_utils.get_checked_out_pr(function(checked_out_pr)
@@ -455,6 +448,56 @@ M.delete_comment = function()
         )
       end)
     end)
+  end)
+end
+
+M.is_in_diffview = function(buf_name)
+  return string.sub(buf_name, 1, 11) == "diffview://"
+end
+
+M.get_diffview_filename = function(buf_name, cb)
+  pr_utils.get_selected_pr(function(selected_pr)
+    if selected_pr == nil then
+      utils.notify('No PR selected/checked out', vim.log.levels.WARN)
+      return
+    end
+
+    utils.get_git_root(function(git_root)
+      local full_name = string.sub(buf_name, 12)
+      if string.sub(full_name, 1, #git_root) == git_root then
+        local without_root = string.sub(full_name, #git_root + 1)
+        local split = vim.split(without_root, '/')
+        if split[2] == '.git' and string.sub(selected_pr.headRefOid, 1, string.len(split[3])) == split[3] then
+          table.remove(split, 1)
+          table.remove(split, 1)
+          table.remove(split, 1)
+          cb(git_root .. '/' .. table.concat(split, '/'))
+        end
+      end
+    end)
+  end)
+end
+
+M.load_comments_on_buffer_by_filename = function(bufnr, filename)
+  vim.schedule(function()
+    config.log('load_comments_on_buffer filename', filename)
+    if state.comments_list[filename] ~= nil then
+      local diagnostics = {}
+      for _, comment in pairs(state.comments_list[filename]) do
+        if #comment.comments > 0 then
+          config.log('comment to diagnostics', comment)
+          table.insert(diagnostics, {
+            lnum = comment.line - 1,
+            col = 0,
+            message = comment.content,
+            severity = vim.diagnostic.severity.INFO,
+            source = "GHLite",
+          })
+        end
+      end
+
+      vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteNamespace"), bufnr, diagnostics, {})
+    end
   end)
 end
 
