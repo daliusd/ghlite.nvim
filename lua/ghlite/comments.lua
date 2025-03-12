@@ -464,6 +464,10 @@ M.get_diffview_filename = function(buf_name, cb)
 
     utils.get_git_root(function(git_root)
       local full_name = string.sub(buf_name, 12)
+      config.log('get_diffview_filename. git_root', git_root)
+      config.log('get_diffview_filename. full_name', full_name)
+      config.log('get_diffview_filename. selected_pr.headRefOid', selected_pr.headRefOid)
+
       if string.sub(full_name, 1, #git_root) == git_root then
         local without_root = string.sub(full_name, #git_root + 1)
         local split = vim.split(without_root, '/')
