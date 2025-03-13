@@ -456,30 +456,29 @@ M.is_in_diffview = function(buf_name)
 end
 
 M.get_diffview_filename = function(buf_name, cb)
-  pr_utils.get_selected_pr(function(selected_pr)
-    if selected_pr == nil then
-      utils.notify('No PR selected/checked out', vim.log.levels.WARN)
-      return
-    end
+  local view = require('diffview.lib').get_current_view()
+  local file = view:infer_cur_file()
+  if file then
+    pr_utils.get_selected_pr(function(selected_pr)
+      if selected_pr == nil then
+        utils.notify('No PR selected/checked out', vim.log.levels.WARN)
+        return
+      end
 
-    utils.get_git_root(function(git_root)
-      local full_name = string.sub(buf_name, 12)
-      config.log('get_diffview_filename. git_root', git_root)
+      local full_name = file.absolute_path
+
+      config.log('get_diffview_filename. buf_name', buf_name)
       config.log('get_diffview_filename. full_name', full_name)
       config.log('get_diffview_filename. selected_pr.headRefOid', selected_pr.headRefOid)
 
-      if string.sub(full_name, 1, #git_root) == git_root then
-        local without_root = string.sub(full_name, #git_root + 1)
-        local split = vim.split(without_root, '/')
-        if split[2] == '.git' and string.sub(selected_pr.headRefOid, 1, string.len(split[3])) == split[3] then
-          table.remove(split, 1)
-          table.remove(split, 1)
-          table.remove(split, 1)
-          cb(git_root .. '/' .. table.concat(split, '/'))
-        end
+      local commit_abbrev = selected_pr.headRefOid:sub(1, 11)
+
+      local found = string.find(buf_name, commit_abbrev, 1, true)
+      if found then
+        cb(full_name)
       end
     end)
-  end)
+  end
 end
 
 M.load_comments_on_buffer_by_filename = function(bufnr, filename)
