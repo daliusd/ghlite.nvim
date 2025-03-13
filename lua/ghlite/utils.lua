@@ -47,6 +47,12 @@ function M.get_git_root(cb)
   end)
 end
 
+function M.get_git_merge_base(baseCommitId, headCommitId, cb)
+  M.system_str_cb("git merge-base " .. baseCommitId .. " " .. headCommitId, function(result)
+    cb(vim.split(result, '\n')[1])
+  end)
+end
+
 function M.get_current_git_branch_name(cb)
   M.system_str_cb('git branch --show-current', function(result)
     cb(vim.split(result, '\n')[1])

@@ -147,13 +147,14 @@ function M.load_pr_diffview()
     utils.notify('Comments load started...')
     comments.load_comments_only(selected_pr.number, function()
       utils.notify('Comments loaded.')
-      vim.schedule(function()
-        if selected_pr.baseRefOid then
-          vim.cmd(string.format('DiffviewOpen %s..%s', selected_pr.baseRefOid, selected_pr.headRefOid))
-        else
-          vim.cmd(string.format('DiffviewOpen origin/%s..%s', selected_pr.baseRefName, selected_pr.headRefOid))
-        end
-      end)
+      utils.get_git_merge_base(
+        selected_pr.baseRefOid and selected_pr.baseRefOid or selected_pr.baseRefName,
+        selected_pr.headRefOid,
+        function(mergeBaseOid)
+          vim.schedule(function()
+            vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
+          end)
+        end)
     end)
   end)
 end
