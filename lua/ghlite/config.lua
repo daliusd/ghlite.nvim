@@ -1,5 +1,4 @@
-local M = {
-}
+local M = {}
 
 M.s = {
   debug = false,
@@ -35,19 +34,19 @@ M.s = {
 }
 
 function M.setup(config)
-  M.s = vim.tbl_deep_extend("force", {}, M.s, config)
+  M.s = vim.tbl_deep_extend('force', {}, M.s, config)
 end
 
 function M.log(key, message)
   if M.s.debug then
-    local home = os.getenv("HOME")
+    local home = os.getenv('HOME')
     local log_file_name = home .. '/.ghlite.log'
-    local log_file = io.open(log_file_name, "a")
+    local log_file = io.open(log_file_name, 'a')
     if log_file then
-      log_file:write(os.date("%Y-%m-%d %H:%M:%S") .. ' ' .. key .. ':\n')
+      log_file:write(os.date('%Y-%m-%d %H:%M:%S') .. ' ' .. key .. ':\n')
       log_file:write(vim.inspect(message))
       log_file:write('\n\n')
-      log_file:close();
+      log_file:close()
     end
   end
 end

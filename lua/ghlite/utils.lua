@@ -1,13 +1,13 @@
-local config = require "ghlite.config"
+local config = require('ghlite.config')
 
 local M = {}
 
 function M.system_str_cb(cmd, cb)
-  local cmd_split = vim.split(cmd, " ");
+  local cmd_split = vim.split(cmd, ' ')
   vim.system(cmd_split, { text = true }, function(result)
-    if type(cb) == "function" then
+    if type(cb) == 'function' then
       if #result.stderr > 0 then
-        config.log("system_str_cb error", result.stderr)
+        config.log('system_str_cb error', result.stderr)
         M.notify(result.stderr, vim.log.levels.ERROR)
       end
 
@@ -18,7 +18,7 @@ end
 
 function M.system_cb(cmd, cb)
   vim.system(cmd, { text = true }, function(result)
-    if type(cb) == "function" then
+    if type(cb) == 'function' then
       cb(result.stdout)
     end
   end)
@@ -42,13 +42,13 @@ function M.is_empty(value)
 end
 
 function M.get_git_root(cb)
-  M.system_str_cb("git rev-parse --show-toplevel", function(result)
+  M.system_str_cb('git rev-parse --show-toplevel', function(result)
     cb(vim.split(result, '\n')[1])
   end)
 end
 
 function M.get_git_merge_base(baseCommitId, headCommitId, cb)
-  M.system_str_cb("git merge-base " .. baseCommitId .. " " .. headCommitId, function(result)
+  M.system_str_cb('git merge-base ' .. baseCommitId .. ' ' .. headCommitId, function(result)
     cb(vim.split(result, '\n')[1])
   end)
 end
@@ -84,16 +84,26 @@ function M.get_comment(buf_name, split_command, prompt, content, key_binding, ca
     if prompt ~= nil and input_lines[1] == prompt then
       table.remove(input_lines, 1)
     end
-    local input = table.concat(input_lines, "\n")
+    local input = table.concat(input_lines, '\n')
 
     vim.cmd('bwipeout')
     callback(input)
   end
 
-  vim.api.nvim_buf_set_keymap(buf, 'n', key_binding, '',
-    { noremap = true, silent = true, callback = capture_input_and_close })
-  vim.api.nvim_buf_set_keymap(buf, 'i', key_binding, '',
-    { noremap = true, silent = true, callback = capture_input_and_close })
+  vim.api.nvim_buf_set_keymap(
+    buf,
+    'n',
+    key_binding,
+    '',
+    { noremap = true, silent = true, callback = capture_input_and_close }
+  )
+  vim.api.nvim_buf_set_keymap(
+    buf,
+    'i',
+    key_binding,
+    '',
+    { noremap = true, silent = true, callback = capture_input_and_close }
+  )
 end
 
 return M

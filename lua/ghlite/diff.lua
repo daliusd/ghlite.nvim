@@ -1,10 +1,10 @@
-local utils = require "ghlite.utils"
-local pr_commands = require "ghlite.pr_commands"
-local config = require "ghlite.config"
-local gh = require "ghlite.gh"
-local comments = require "ghlite.comments"
-local state = require "ghlite.state"
-local pr_utils = require "ghlite.pr_utils"
+local comments = require('ghlite.comments')
+local config = require('ghlite.config')
+local gh = require('ghlite.gh')
+local pr_commands = require('ghlite.pr_commands')
+local pr_utils = require('ghlite.pr_utils')
+local state = require('ghlite.state')
+local utils = require('ghlite.utils')
 
 local M = {}
 
@@ -16,11 +16,12 @@ local function construct_mappings(diff_content, cb)
     for line_num = 1, #diff_content do
       local line = diff_content[line_num]
 
-      if line:match("^%-%-%-") then
-        do end -- this shouldn't become line
-      elseif line:match("^+++") then
-        current_filename = line:match("^+++%s*(.+)")
-        current_filename = git_root .. '/' .. current_filename:gsub("^b/", "")
+      if line:match('^%-%-%-') then
+        do
+        end -- this shouldn't become line
+      elseif line:match('^+++') then
+        current_filename = line:match('^+++%s*(.+)')
+        current_filename = git_root .. '/' .. current_filename:gsub('^b/', '')
       elseif line:sub(1, 2) == '@@' then
         local pos = vim.split(line, ' ')[3]
         local lineno = tonumber(vim.split(pos, ',')[1])
@@ -78,7 +79,10 @@ function M.load_pr_diff()
       construct_mappings(diff_content_lines, function()
         vim.schedule(function()
           local buf = vim.api.nvim_create_buf(false, true)
-          vim.api.nvim_buf_set_name(buf, "PR Diff: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
+          vim.api.nvim_buf_set_name(
+            buf,
+            'PR Diff: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')'
+          )
           state.diff_buffer_id = buf
 
           vim.bo[buf].buftype = 'nofile'
@@ -96,33 +100,63 @@ function M.load_pr_diff()
           vim.bo[buf].modifiable = false
 
           if not utils.is_empty(config.s.keymaps.diff.open_file) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file, '',
-              { noremap = true, silent = true, callback = open_file_from_diff('edit') })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.open_file,
+              '',
+              { noremap = true, silent = true, callback = open_file_from_diff('edit') }
+            )
           end
 
           if not utils.is_empty(config.s.keymaps.diff.open_file_tab) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_tab, '',
-              { noremap = true, silent = true, callback = open_file_from_diff('tabedit') })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.open_file_tab,
+              '',
+              { noremap = true, silent = true, callback = open_file_from_diff('tabedit') }
+            )
           end
 
           if not utils.is_empty(config.s.keymaps.diff.open_file_split) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_split, '',
-              { noremap = true, silent = true, callback = open_file_from_diff('split') })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.open_file_split,
+              '',
+              { noremap = true, silent = true, callback = open_file_from_diff('split') }
+            )
           end
 
           if not utils.is_empty(config.s.keymaps.diff.open_file_vsplit) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.open_file_vsplit, '',
-              { noremap = true, silent = true, callback = open_file_from_diff('vsplit') })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.open_file_vsplit,
+              '',
+              { noremap = true, silent = true, callback = open_file_from_diff('vsplit') }
+            )
           end
 
           if not utils.is_empty(config.s.keymaps.diff.approve) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.approve, '',
-              { noremap = true, silent = true, callback = pr_commands.approve_pr })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.approve,
+              '',
+              { noremap = true, silent = true, callback = pr_commands.approve_pr }
+            )
           end
 
           if not utils.is_empty(config.s.keymaps.diff.request_changes) then
-            vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.diff.request_changes, '',
-              { noremap = true, silent = true, callback = pr_commands.request_changes_pr })
+            vim.api.nvim_buf_set_keymap(
+              buf,
+              'n',
+              config.s.keymaps.diff.request_changes,
+              '',
+              { noremap = true, silent = true, callback = pr_commands.request_changes_pr }
+            )
           end
 
           utils.notify('PR diff loaded.')
@@ -154,7 +188,8 @@ function M.load_pr_diffview()
           vim.schedule(function()
             vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
           end)
-        end)
+        end
+      )
     end)
   end)
 end

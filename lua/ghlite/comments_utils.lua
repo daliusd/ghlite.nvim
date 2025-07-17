@@ -1,5 +1,5 @@
-local utils = require "ghlite.utils"
-require "ghlite.types"
+local utils = require('ghlite.utils')
+require('ghlite.types')
 
 local M = {}
 
@@ -20,7 +20,12 @@ end
 
 --- @param comment Comment
 local function format_comment(comment)
-  return string.format("✍️ %s at %s:\n%s\n\n", comment.user, comment.updated_at, string.gsub(comment.body, "\r", ""))
+  return string.format(
+    '✍️ %s at %s:\n%s\n\n',
+    comment.user,
+    comment.updated_at,
+    string.gsub(comment.body, '\r', '')
+  )
 end
 
 --- @param comments Comment[]

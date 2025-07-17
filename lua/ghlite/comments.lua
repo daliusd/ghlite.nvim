@@ -1,9 +1,9 @@
-local gh = require "ghlite.gh"
-local utils = require "ghlite.utils"
-local config = require "ghlite.config"
-local state = require "ghlite.state"
-local comments_utils = require "ghlite.comments_utils"
-local pr_utils = require "ghlite.pr_utils"
+local comments_utils = require('ghlite.comments_utils')
+local config = require('ghlite.config')
+local gh = require('ghlite.gh')
+local pr_utils = require('ghlite.pr_utils')
+local state = require('ghlite.state')
+local utils = require('ghlite.utils')
 
 local M = {}
 
@@ -36,7 +36,7 @@ local function load_comments_to_quickfix_list()
 
   if #qf_entries > 0 then
     vim.fn.setqflist(qf_entries, 'r')
-    vim.cmd("cfirst")
+    vim.cmd('cfirst')
   else
     utils.notify('No GH comments loaded.')
   end
@@ -115,7 +115,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
             col = 0,
             message = comment.content,
             severity = vim.diagnostic.severity.INFO,
-            source = "GHLite",
+            source = 'GHLite',
           })
         end
       end
@@ -123,7 +123,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
   end
 
   vim.schedule(function()
-    vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteDiffNamespace"), bufnr, diagnostics, {})
+    vim.diagnostic.set(vim.api.nvim_create_namespace('GHLiteDiffNamespace'), bufnr, diagnostics, {})
   end)
 end
 
@@ -208,15 +208,17 @@ M.comment_on_line = function()
             conversations = M.get_conversations(current_filename, current_line)
           end
 
-          local prompt = "<!-- Type your " ..
-              (#conversations > 0 and "reply" or "comment") ..
-              " and press " .. config.s.keymaps.comment.send_comment .. ": -->"
+          local prompt = '<!-- Type your '
+            .. (#conversations > 0 and 'reply' or 'comment')
+            .. ' and press '
+            .. config.s.keymaps.comment.send_comment
+            .. ': -->'
 
           utils.get_comment(
-            (#conversations > 0 and "PR reply" or "PR comment") .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+            (#conversations > 0 and 'PR reply' or 'PR comment') .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
             config.s.comment_split,
             prompt,
-            { prompt, "" },
+            { prompt, '' },
             config.s.keymaps.comment.send_comment,
             function(input)
               --- @param grouped_comment GroupedComment
@@ -238,25 +240,26 @@ M.comment_on_line = function()
               if #conversations == 1 then
                 reply(conversations[1])
               elseif #conversations > 1 then
-                vim.ui.select(
-                  conversations,
-                  {
-                    prompt = 'Select comment to reply to:',
-                    format_item = function(comment)
-                      return string.format('%s', vim.split(comment.content, '\n')[1])
-                    end,
-                  },
-                  function(comment)
-                    if comment ~= nil then
-                      reply(comment)
-                    end
+                vim.ui.select(conversations, {
+                  prompt = 'Select comment to reply to:',
+                  format_item = function(comment)
+                    return string.format('%s', vim.split(comment.content, '\n')[1])
+                  end,
+                }, function(comment)
+                  if comment ~= nil then
+                    reply(comment)
                   end
-                )
+                end)
               else
                 if current_filename:sub(1, #git_root) == git_root then
                   utils.notify('Sending comment...')
-                  gh.new_comment(state.selected_PR, input,
-                    current_filename:sub(#git_root + 2), current_start_line, current_line, function(resp)
+                  gh.new_comment(
+                    state.selected_PR,
+                    input,
+                    current_filename:sub(#git_root + 2),
+                    current_start_line,
+                    current_line,
+                    function(resp)
                       if resp['errors'] == nil then
                         local new_comment = comments_utils.convert_comment(resp)
                         --- @type GroupedComment
@@ -279,7 +282,8 @@ M.comment_on_line = function()
                       else
                         utils.notify('Failed to send comment.', vim.log.levels.WARN)
                       end
-                    end)
+                    end
+                  )
                 end
               end
             end
@@ -303,20 +307,16 @@ M.open_comment = function()
       if #conversations == 1 then
         utils.system_cb({ config.s.open_command, conversations[1].url })
       elseif #conversations > 1 then
-        vim.ui.select(
-          conversations,
-          {
-            prompt = 'Select conversation to open in browser:',
-            format_item = function(comment)
-              return string.format('%s', vim.split(comment.content, '\n')[1])
-            end,
-          },
-          function(comment)
-            if comment ~= nil then
-              utils.system_cb({ config.s.open_command, comment.url })
-            end
+        vim.ui.select(conversations, {
+          prompt = 'Select conversation to open in browser:',
+          format_item = function(comment)
+            return string.format('%s', vim.split(comment.content, '\n')[1])
+          end,
+        }, function(comment)
+          if comment ~= nil then
+            utils.system_cb({ config.s.open_command, comment.url })
           end
-        )
+        end)
       else
         utils.notify('No comments found on this line.', vim.log.levels.WARN)
       end
@@ -348,10 +348,10 @@ end
 --- @param comment Comment
 --- @param conversation GroupedComment
 local function edit_comment_body(comment, conversation)
-  local prompt = "<!-- Change your comment and press " .. config.s.keymaps.comment.send_comment .. ": -->"
+  local prompt = '<!-- Change your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
 
   utils.get_comment(
-    "PR edit comment" .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+    'PR edit comment' .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
     config.s.comment_split,
     prompt,
     vim.split(prompt .. '\n' .. comment.body, '\n'),
@@ -387,20 +387,16 @@ M.update_comment = function()
       end
 
       vim.schedule(function()
-        vim.ui.select(
-          comments_list,
-          {
-            prompt = 'Select comment to update:',
-            format_item = function(comment)
-              return string.format('%s: %s', comment.updated_at, vim.split(comment.body, '\n')[1])
-            end,
-          },
-          function(comment, idx)
-            if comment ~= nil then
-              edit_comment_body(comment, conversations_list[idx])
-            end
+        vim.ui.select(comments_list, {
+          prompt = 'Select comment to update:',
+          format_item = function(comment)
+            return string.format('%s: %s', comment.updated_at, vim.split(comment.body, '\n')[1])
+          end,
+        }, function(comment, idx)
+          if comment ~= nil then
+            edit_comment_body(comment, conversations_list[idx])
           end
-        )
+        end)
       end)
     end)
   end)
@@ -420,39 +416,35 @@ M.delete_comment = function()
       end
 
       vim.schedule(function()
-        vim.ui.select(
-          comments_list,
-          {
-            prompt = 'Select comment to delete:',
-            format_item = function(comment)
-              return string.format('%s: %s', comment.updated_at, vim.split(comment.body, '\n')[1])
-            end,
-          },
-          function(comment, idx)
-            if comment ~= nil then
-              utils.notify('Deleting comment...')
-              gh.delete_comment(comment.id, function()
-                local function is_non_deleted_comment(c)
-                  return c.id ~= comment.id
-                end
+        vim.ui.select(comments_list, {
+          prompt = 'Select comment to delete:',
+          format_item = function(comment)
+            return string.format('%s: %s', comment.updated_at, vim.split(comment.body, '\n')[1])
+          end,
+        }, function(comment, idx)
+          if comment ~= nil then
+            utils.notify('Deleting comment...')
+            gh.delete_comment(comment.id, function()
+              local function is_non_deleted_comment(c)
+                return c.id ~= comment.id
+              end
 
-                local convo = conversations_list[idx]
-                convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
-                convo.content = comments_utils.prepare_content(convo.comments)
+              local convo = conversations_list[idx]
+              convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
+              convo.content = comments_utils.prepare_content(convo.comments)
 
-                utils.notify('Comment deleted.')
-                M.load_comments_on_current_buffer()
-              end)
-            end
+              utils.notify('Comment deleted.')
+              M.load_comments_on_current_buffer()
+            end)
           end
-        )
+        end)
       end)
     end)
   end)
 end
 
 M.is_in_diffview = function(buf_name)
-  return string.sub(buf_name, 1, 11) == "diffview://"
+  return string.sub(buf_name, 1, 11) == 'diffview://'
 end
 
 M.get_diffview_filename = function(buf_name, cb)
@@ -494,12 +486,12 @@ M.load_comments_on_buffer_by_filename = function(bufnr, filename)
             col = 0,
             message = comment.content,
             severity = vim.diagnostic.severity.INFO,
-            source = "GHLite",
+            source = 'GHLite',
           })
         end
       end
 
-      vim.diagnostic.set(vim.api.nvim_create_namespace("GHLiteNamespace"), bufnr, diagnostics, {})
+      vim.diagnostic.set(vim.api.nvim_create_namespace('GHLiteNamespace'), bufnr, diagnostics, {})
     end
   end)
 end

@@ -1,4 +1,4 @@
-require "ghlite.types"
+require('ghlite.types')
 
 local M = {}
 

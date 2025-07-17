@@ -1,7 +1,7 @@
-local config = require "ghlite.config"
-local comments = require "ghlite.comments"
-local diff = require "ghlite.diff"
-local pr_commands = require "ghlite.pr_commands"
+local comments = require('ghlite.comments')
+local config = require('ghlite.config')
+local diff = require('ghlite.diff')
+local pr_commands = require('ghlite.pr_commands')
 
 local M = {}
 
@@ -23,18 +23,18 @@ M.setup = function(user_config)
   vim.api.nvim_create_user_command('GHLitePROpenComment', comments.open_comment, {})
   vim.api.nvim_create_user_command('GHLitePRDeleteComment', comments.delete_comment, {})
 
-  vim.api.nvim_create_autocmd("BufReadPost", {
-    pattern = "*",
+  vim.api.nvim_create_autocmd('BufReadPost', {
+    pattern = '*',
     callback = function(args)
       comments.load_comments_on_buffer(args.buf)
-    end
+    end,
   })
 
-  vim.api.nvim_create_autocmd("BufEnter", {
-    pattern = "*",
+  vim.api.nvim_create_autocmd('BufEnter', {
+    pattern = '*',
     callback = function(args)
       comments.load_comments_on_buffer(args.buf)
-    end
+    end,
   })
 end
 

@@ -6,11 +6,11 @@
 --
 -- If there is branch checked out but no PR Selected then this PR becomes Selected.
 
-local state = require "ghlite.state"
-local utils = require "ghlite.utils"
-local gh = require "ghlite.gh"
+local gh = require('ghlite.gh')
+local state = require('ghlite.state')
+local utils = require('ghlite.utils')
 
-require "ghlite.types"
+require('ghlite.types')
 
 local M = {}
 
@@ -32,7 +32,7 @@ end
 --- @return PullRequest|nil returns checked out pr or nil if user does not approve check out
 local function approve_and_chechkout_selected_pr(cb)
   vim.schedule(function()
-    local choice = vim.fn.confirm("Do you want to check out selected PR?", "&Yes\n&No", 1)
+    local choice = vim.fn.confirm('Do you want to check out selected PR?', '&Yes\n&No', 1)
 
     if choice == 1 then
       utils.notify(string.format('Checking out PR #%d...', state.selected_PR.number))

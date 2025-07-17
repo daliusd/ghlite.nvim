@@ -1,8 +1,8 @@
-local gh = require "ghlite.gh"
-local config = require "ghlite.config"
-local state = require "ghlite.state"
-local utils = require "ghlite.utils"
-local pr_utils = require "ghlite.pr_utils"
+local config = require('ghlite.config')
+local gh = require('ghlite.gh')
+local pr_utils = require('ghlite.pr_utils')
+local state = require('ghlite.state')
+local utils = require('ghlite.utils')
 
 local M = {}
 
@@ -14,51 +14,51 @@ local function ui_selectPR(prompt, callback)
       return
     end
 
-    vim.schedule(
-      function()
-        vim.ui.select(
-          prs,
-          {
-            prompt = prompt,
-            format_item = function(pr)
-              local date = pr.createdAt:sub(1, 10)
-              local draft = pr.isDraft and ' Draft' or ''
-              local approved = pr.reviewDecision == 'APPROVED' and ' Approved' or ''
+    vim.schedule(function()
+      vim.ui.select(prs, {
+        prompt = prompt,
+        format_item = function(pr)
+          local date = pr.createdAt:sub(1, 10)
+          local draft = pr.isDraft and ' Draft' or ''
+          local approved = pr.reviewDecision == 'APPROVED' and ' Approved' or ''
 
-              local labels = ''
-              for _, label in pairs(pr.labels) do
-                labels = labels .. ', ' .. label.name
-              end
+          local labels = ''
+          for _, label in pairs(pr.labels) do
+            labels = labels .. ', ' .. label.name
+          end
 
-              return string.format('#%s: %s (%s, %s%s%s%s)', pr.number, pr.title, pr.author.login, date, draft, approved,
-                labels)
-            end,
-          },
-          callback
-        )
-      end
-    )
+          return string.format(
+            '#%s: %s (%s, %s%s%s%s)',
+            pr.number,
+            pr.title,
+            pr.author.login,
+            date,
+            draft,
+            approved,
+            labels
+          )
+        end,
+      }, callback)
+    end)
   end)
 end
 
 function M.select()
-  ui_selectPR('Select PR:',
-    function(pr)
-      if pr ~= nil then
-        state.selected_PR = pr
-        M.load_pr_view()
-      end
-    end)
+  ui_selectPR('Select PR:', function(pr)
+    if pr ~= nil then
+      state.selected_PR = pr
+      M.load_pr_view()
+    end
+  end)
 end
 
 function M.checkout()
-  ui_selectPR('Select PR to checkout:',
-    function(pr)
-      if pr ~= nil then
-        state.selected_PR = pr
-        gh.checkout_pr(state.selected_PR.number, M.load_pr_view)
-      end
-    end)
+  ui_selectPR('Select PR to checkout:', function(pr)
+    if pr ~= nil then
+      state.selected_PR = pr
+      gh.checkout_pr(state.selected_PR.number, M.load_pr_view)
+    end
+  end)
 end
 
 local function show_pr_info(pr_info)
@@ -90,13 +90,13 @@ local function show_pr_info(pr_info)
     if #pr_info.reviews > 0 then
       local reviews = 'Reviews: '
       for idx, review in pairs(pr_info.reviews) do
-        reviews = reviews .. (idx > 1 and ', ' or '') .. string.format("%s (%s)", review.author.login, review.state)
+        reviews = reviews .. (idx > 1 and ', ' or '') .. string.format('%s (%s)', review.author.login, review.state)
       end
       table.insert(pr_view, reviews)
     end
 
     table.insert(pr_view, '')
-    local body = string.gsub(pr_info.body, "\r", "")
+    local body = string.gsub(pr_info.body, '\r', '')
     for _, line in ipairs(vim.split(body, '\n')) do
       table.insert(pr_view, line)
     end
@@ -124,12 +124,12 @@ local function show_pr_info(pr_info)
       table.insert(pr_view, '')
 
       for _, comment in pairs(pr_info.comments) do
-        table.insert(pr_view, string.format("✍️ %s at %s:", comment.author.login, comment.createdAt))
+        table.insert(pr_view, string.format('✍️ %s at %s:', comment.author.login, comment.createdAt))
 
-        local comment_body = string.gsub(comment.body, "\r", "")
+        local comment_body = string.gsub(comment.body, '\r', '')
 
         -- NOTE: naive check if it is HTML comment
-        if config.s.html_comments_command ~= false and comment.body:match("<%s*[%w%-]+.-%s*>") ~= nil then
+        if config.s.html_comments_command ~= false and comment.body:match('<%s*[%w%-]+.-%s*>') ~= nil then
           local success, result = pcall(function()
             return vim.system(config.s.html_comments_command, { stdin = comment.body }):wait()
           end)
@@ -146,7 +146,7 @@ local function show_pr_info(pr_info)
     end
 
     local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(buf, "PR View: " .. pr_info.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")")
+    vim.api.nvim_buf_set_name(buf, 'PR View: ' .. pr_info.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')')
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].filetype = 'markdown'
@@ -162,30 +162,49 @@ local function show_pr_info(pr_info)
     vim.bo[buf].modifiable = false
 
     if not utils.is_empty(config.s.keymaps.pr.approve) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.approve, '',
-        { noremap = true, silent = true, callback = M.approve_pr })
+      vim.api.nvim_buf_set_keymap(
+        buf,
+        'n',
+        config.s.keymaps.pr.approve,
+        '',
+        { noremap = true, silent = true, callback = M.approve_pr }
+      )
     end
     if not utils.is_empty(config.s.keymaps.pr.request_changes) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.request_changes, '',
-        { noremap = true, silent = true, callback = M.request_changes_pr })
+      vim.api.nvim_buf_set_keymap(
+        buf,
+        'n',
+        config.s.keymaps.pr.request_changes,
+        '',
+        { noremap = true, silent = true, callback = M.request_changes_pr }
+      )
     end
     if not utils.is_empty(config.s.keymaps.pr.merge) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.merge, '',
-        { noremap = true, silent = true, callback = M.merge_pr })
+      vim.api.nvim_buf_set_keymap(
+        buf,
+        'n',
+        config.s.keymaps.pr.merge,
+        '',
+        { noremap = true, silent = true, callback = M.merge_pr }
+      )
     end
     if not utils.is_empty(config.s.keymaps.pr.comment) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '',
-        {
-          noremap = true,
-          silent = true,
-          callback = function()
-            M.comment_on_pr(M.load_pr_view)
-          end
-        })
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '', {
+        noremap = true,
+        silent = true,
+        callback = function()
+          M.comment_on_pr(M.load_pr_view)
+        end,
+      })
     end
     if not utils.is_empty(config.s.keymaps.pr.diff) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>',
-        { noremap = true, silent = true })
+      vim.api.nvim_buf_set_keymap(
+        buf,
+        'n',
+        config.s.keymaps.pr.diff,
+        ':GHLitePRDiff<cr>',
+        { noremap = true, silent = true }
+      )
     end
 
     utils.notify('PR view loaded.')
@@ -215,14 +234,15 @@ M.comment_on_pr = function(on_success)
     end
 
     vim.schedule(function()
-      local prompt = "<!-- Type your PR comment and press " ..
-          config.s.keymaps.comment.send_comment .. " to comment: -->"
+      local prompt = '<!-- Type your PR comment and press '
+        .. config.s.keymaps.comment.send_comment
+        .. ' to comment: -->'
 
       utils.get_comment(
-        "PR Comment: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+        'PR Comment: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
         config.s.comment_split,
         prompt,
-        { prompt, "" },
+        { prompt, '' },
         config.s.keymaps.comment.send_comment,
         function(input)
           utils.notify('Sending comment...')
@@ -230,7 +250,7 @@ M.comment_on_pr = function(on_success)
           gh.new_pr_comment(state.selected_PR, input, function(resp)
             if resp ~= nil then
               utils.notify('Comment sent.')
-              if type(on_success) == "function" then
+              if type(on_success) == 'function' then
                 on_success()
               end
             else
@@ -263,14 +283,15 @@ function M.request_changes_pr()
     end
 
     vim.schedule(function()
-      local prompt = "<!-- Type your comment and press " ..
-          config.s.keymaps.comment.send_comment .. " to request PR changes: -->"
+      local prompt = '<!-- Type your comment and press '
+        .. config.s.keymaps.comment.send_comment
+        .. ' to request PR changes: -->'
 
       utils.get_comment(
-        "PR Request Changes: " .. selected_pr.number .. " (" .. os.date("%Y-%m-%d %H:%M:%S") .. ")",
+        'PR Request Changes: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
         config.s.comment_split,
         prompt,
-        { prompt, "" },
+        { prompt, '' },
         config.s.keymaps.comment.send_comment,
         function(input)
           utils.notify('PR request changes started...')
