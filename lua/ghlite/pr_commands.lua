@@ -1,3 +1,4 @@
+local comments = require('ghlite.comments')
 local config = require('ghlite.config')
 local gh = require('ghlite.gh')
 local pr_utils = require('ghlite.pr_utils')
@@ -59,6 +60,56 @@ function M.checkout()
       gh.checkout_pr(state.selected_PR.number, M.load_pr_view)
     end
   end)
+end
+
+local function format_review_comments_for_pr_view()
+  local review_section = {}
+
+  if state.comments_list and next(state.comments_list) then
+    table.insert(review_section, '')
+    table.insert(review_section, '## Review Comments')
+    table.insert(review_section, '')
+
+    local filenames = {}
+    for filename in pairs(state.comments_list) do
+      table.insert(filenames, filename)
+    end
+    table.sort(filenames)
+
+    for _, filename in pairs(filenames) do
+      local comments_in_file = state.comments_list[filename]
+
+      table.sort(comments_in_file, function(a, b)
+        return a.line < b.line
+      end)
+
+      for _, comment_group in pairs(comments_in_file) do
+        if #comment_group.comments > 0 then
+          local relative_filename = filename:match('^.*/(.*)$') or filename
+          table.insert(review_section, string.format('### %s:%d', relative_filename, comment_group.line))
+          table.insert(review_section, '')
+
+          for _, comment in pairs(comment_group.comments) do
+            local comment_body = string.gsub(comment.body, '\r', '')
+            local comment_lines = vim.split(comment_body, '\n')
+
+            if comment == comment_group.comments[1] then
+              table.insert(review_section, string.format('> **%s** at %s:', comment.user, comment.updated_at))
+            else
+              table.insert(review_section, string.format('> **%s** replied at %s:', comment.user, comment.updated_at))
+            end
+
+            for _, line in ipairs(comment_lines) do
+              table.insert(review_section, '> ' .. line)
+            end
+            table.insert(review_section, '')
+          end
+        end
+      end
+    end
+  end
+
+  return review_section
 end
 
 local function show_pr_info(pr_info)
@@ -144,6 +195,42 @@ local function show_pr_info(pr_info)
         table.insert(pr_view, '')
       end
     end
+
+    -- Load review comments and add them to the PR view
+    comments.load_comments_only(pr_info.number, function()
+      vim.schedule(function()
+        local review_section = format_review_comments_for_pr_view()
+        if #review_section > 0 then
+          local buf = vim.api.nvim_get_current_buf()
+          local current_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+          -- Insert review comments before the keymap hints
+          local insert_position = #current_lines
+          for i = #current_lines, 1, -1 do
+            if current_lines[i]:match('^Press .* to ') then
+              insert_position = i - 1
+            else
+              break
+            end
+          end
+
+          -- Add review comments section
+          for i, line in ipairs(review_section) do
+            table.insert(current_lines, insert_position + i, line)
+          end
+
+          -- Add an empty line before keymap hints
+          table.insert(current_lines, insert_position + #review_section + 1, '')
+
+          -- Temporarily make buffer modifiable to update it
+          vim.bo[buf].readonly = false
+          vim.bo[buf].modifiable = true
+          vim.api.nvim_buf_set_lines(buf, 0, -1, false, current_lines)
+          vim.bo[buf].readonly = true
+          vim.bo[buf].modifiable = false
+        end
+      end)
+    end)
 
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_name(buf, 'PR View: ' .. pr_info.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')')
