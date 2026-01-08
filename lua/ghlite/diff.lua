@@ -227,7 +227,7 @@ function M.load_pr_diffview()
             if diff_tool == 'diffview' then
               vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
             elseif diff_tool == 'codediff' then
-              vim.cmd(string.format('CodeDiff %s %s', mergeBaseOid, selected_pr.headRefOid))
+              vim.cmd(string.format('CodeDiff %s %s', selected_pr.headRefOid, mergeBaseOid))
             end
           end)
         end
