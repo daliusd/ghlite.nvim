@@ -4,6 +4,7 @@ M.s = {
   debug = false,
   view_split = 'vsplit',
   diff_split = 'vsplit',
+  diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto'
   comment_split = 'split',
   open_command = 'open',
   merge = {

@@ -16,7 +16,9 @@ instead of replacing it like other plugins do.
 - If you are using fzf-lua or telescope you might want to checkout how to
   override UI select. E.g. `vim.cmd('FzfLua register_ui_select')`
 
-- [Diffview.nvim](https://github.com/sindrets/diffview.nvim) (optional)
+- [Diffview.nvim](https://github.com/sindrets/diffview.nvim) (optional, for enhanced diff viewing)
+
+- [codediff.nvim](https://github.com/esmuellert/codediff.nvim) (optional, alternative for enhanced diff viewing)
 
 ## Installation
 
@@ -32,6 +34,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         debug = false, -- if set to true debugging information is written to ~/.ghlite.log file
         view_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
+        diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto' - which tool to use for GHLitePRDiffview
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         merge = {
@@ -220,8 +223,17 @@ Supported key bindings:
 
 ### GHLitePRDiffview
 
-This command shows PR diff using
-[Diffview.nvim](https://github.com/sindrets/diffview.nvim).
+This command shows PR diff using either
+[Diffview.nvim](https://github.com/sindrets/diffview.nvim) or
+[codediff.nvim](https://github.com/esmuellert/codediff.nvim), depending on the
+`diff_tool` configuration option:
+
+- `diff_tool = 'auto'` (default): Uses diffview.nvim if installed, otherwise
+  codediff.nvim. If both are installed, diffview.nvim is preferred.
+- `diff_tool = 'diffview'`: Always uses diffview.nvim (shows error if not
+  installed)
+- `diff_tool = 'codediff'`: Always uses codediff.nvim (shows error if not
+  installed)
 
 This command will not show correct diff sometimes if you have gh older than
 2.63.0 (details here https://github.com/cli/cli/pull/9938).
