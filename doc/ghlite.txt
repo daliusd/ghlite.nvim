@@ -13,7 +13,10 @@ REQUIREMENTS                        *ghlite.nvim-requirements*
 
 - Neovim 0.10+
 - GitHub CLI (gh) (https://cli.github.com/)
-- Optional: [Diffview.nvim](https://github.com/sindrets/diffview.nvim)
+- Optional: Diffview.nvim (https://github.com/sindrets/diffview.nvim) for
+  enhanced diff viewing
+- Optional: codediff.nvim (https://github.com/esmuellert/codediff.nvim) as an
+  alternative for enhanced diff viewing
 
 To override UI select for fzf-lua or telescope, use:
 >lua
@@ -35,6 +38,7 @@ NOTE: Default config is shown below. Skip settings if you are fine with defaults
         debug = false, -- if set to true debugging information is written to ~/.ghlite.log file
         view_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
+        diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto' - which tool to use for GHLitePRDiffview
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         merge = {
@@ -238,8 +242,17 @@ Supported key bindings:
 ==============================================================================
 :GHLitePRDiffview                   *:GHLitePRDiffview*
 
-This command shows PR diff using
-[Diffview.nvim](https://github.com/sindrets/diffview.nvim).
+This command shows PR diff using either Diffview.nvim
+(https://github.com/sindrets/diffview.nvim) or codediff.nvim
+(https://github.com/esmuellert/codediff.nvim), depending on the `diff_tool`
+configuration option:
+
+- `diff_tool = 'auto'` (default): Uses diffview.nvim if installed, otherwise
+  codediff.nvim. If both are installed, diffview.nvim is preferred.
+- `diff_tool = 'diffview'`: Always uses diffview.nvim (shows error if not
+  installed)
+- `diff_tool = 'codediff'`: Always uses codediff.nvim (shows error if not
+  installed)
 
 However note that this command shows diff between what's in main branch and PR
 branch. This might be different from what's shown in GitHub. E.g. if there are
