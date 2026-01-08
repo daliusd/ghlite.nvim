@@ -223,12 +223,18 @@ function M.load_pr_diffview()
         selected_pr.baseRefOid and selected_pr.baseRefOid or selected_pr.baseRefName,
         selected_pr.headRefOid,
         function(mergeBaseOid)
-          vim.schedule(function()
-            if diff_tool == 'diffview' then
-              vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
-            elseif diff_tool == 'codediff' then
-              vim.cmd(string.format('CodeDiff %s %s', selected_pr.headRefOid, mergeBaseOid))
-            end
+          pr_utils.is_pr_checked_out(function(is_checked_out)
+            vim.schedule(function()
+              if diff_tool == 'diffview' then
+                vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
+              elseif diff_tool == 'codediff' then
+                if is_checked_out then
+                  vim.cmd(string.format('CodeDiff %s', mergeBaseOid))
+                else
+                  vim.cmd(string.format('CodeDiff %s %s', mergeBaseOid, selected_pr.headRefOid))
+                end
+              end
+            end)
           end)
         end
       )
