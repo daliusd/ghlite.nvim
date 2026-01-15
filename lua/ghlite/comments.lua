@@ -88,7 +88,16 @@ M.load_comments_on_buffer = function(bufnr)
     M.get_diffview_filename(buf_name, function(filename)
       M.load_comments_on_buffer_by_filename(bufnr, filename)
     end)
+    return
+  end
 
+  -- Handle CodeDiff buffers
+  if M.is_in_codediff(buf_name) then
+    M.get_codediff_filename(buf_name, function(filename)
+      if filename then
+        M.load_comments_on_buffer_by_filename(bufnr, filename)
+      end
+    end)
     return
   end
 
@@ -123,6 +132,10 @@ M.load_comments_on_diff_buffer = function(bufnr)
   end
 
   vim.schedule(function()
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      config.log('load_comments_on_diff_buffer: buffer no longer valid', bufnr)
+      return
+    end
     vim.diagnostic.set(vim.api.nvim_create_namespace('GHLiteDiffNamespace'), bufnr, diagnostics, {})
   end)
 end
@@ -163,6 +176,16 @@ local function get_current_filename_and_line(cb)
       M.get_diffview_filename(current_filename, function(filename)
         cb(filename, current_start_line, current_line)
       end)
+      return
+    elseif M.is_in_codediff(current_filename) then
+      M.get_codediff_filename(current_filename, function(filename)
+        if filename then
+          cb(filename, current_start_line, current_line)
+        else
+          cb(nil, nil, nil)
+        end
+      end)
+      return
     else
       pr_utils.is_pr_checked_out(function(is_pr_checked_out)
         pr_utils.get_checked_out_pr(function(checked_out_pr)
@@ -447,6 +470,10 @@ M.is_in_diffview = function(buf_name)
   return string.sub(buf_name, 1, 11) == 'diffview://'
 end
 
+M.is_in_codediff = function(buf_name)
+  return string.sub(buf_name, 1, 12) == 'codediff:///'
+end
+
 M.get_diffview_filename = function(buf_name, cb)
   local view = require('diffview.lib').get_current_view()
   local file = view:infer_cur_file()
@@ -473,8 +500,84 @@ M.get_diffview_filename = function(buf_name, cb)
   end
 end
 
+M.get_codediff_filename = function(buf_name, cb)
+  -- Try using CodeDiff API first (Option C)
+  local has_codediff, virtual_file = pcall(require, 'codediff.core.virtual_file')
+
+  if has_codediff and virtual_file.parse_url then
+    local git_root, commit, filepath = virtual_file.parse_url(buf_name)
+
+    if not git_root or not commit or not filepath then
+      config.log('get_codediff_filename: failed to parse URL', buf_name)
+      cb(nil)
+      return
+    end
+
+    -- Verify commit hash matches PR's headRefOid
+    pr_utils.get_selected_pr(function(selected_pr)
+      if selected_pr == nil then
+        utils.notify('No PR selected/checked out', vim.log.levels.WARN)
+        cb(nil)
+        return
+      end
+
+      config.log('get_codediff_filename. buf_name', buf_name)
+      config.log('get_codediff_filename. git_root', git_root)
+      config.log('get_codediff_filename. commit', commit)
+      config.log('get_codediff_filename. filepath', filepath)
+      config.log('get_codediff_filename. selected_pr.headRefOid', selected_pr.headRefOid)
+
+      -- Check if commit matches PR (support both full and abbreviated hash)
+      local commit_abbrev = selected_pr.headRefOid:sub(1, #commit)
+
+      if commit == selected_pr.headRefOid or commit_abbrev == commit then
+        -- Construct full absolute path
+        local full_path = git_root .. '/' .. filepath
+        cb(full_path)
+      else
+        config.log('get_codediff_filename: commit mismatch', commit, selected_pr.headRefOid)
+        cb(nil)
+      end
+    end)
+  else
+    -- Fallback: manual parsing (Option A)
+    config.log('get_codediff_filename: CodeDiff API not available, using manual parsing')
+
+    -- Pattern: codediff:///<git-root>///<commit>/<filepath>
+    local pattern = '^codediff:///(.-)///([a-fA-F0-9]+)/(.+)$'
+    local git_root, commit, filepath = buf_name:match(pattern)
+
+    if git_root and commit and filepath then
+      pr_utils.get_selected_pr(function(selected_pr)
+        if selected_pr == nil then
+          utils.notify('No PR selected/checked out', vim.log.levels.WARN)
+          cb(nil)
+          return
+        end
+
+        local commit_abbrev = selected_pr.headRefOid:sub(1, #commit)
+
+        if commit == selected_pr.headRefOid or commit_abbrev == commit then
+          local full_path = git_root .. '/' .. filepath
+          cb(full_path)
+        else
+          cb(nil)
+        end
+      end)
+    else
+      config.log('get_codediff_filename: failed to parse buffer name', buf_name)
+      cb(nil)
+    end
+  end
+end
+
 M.load_comments_on_buffer_by_filename = function(bufnr, filename)
   vim.schedule(function()
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      config.log('load_comments_on_buffer_by_filename: buffer no longer valid', bufnr)
+      return
+    end
+
     config.log('load_comments_on_buffer filename', filename)
     if state.comments_list[filename] ~= nil then
       local diagnostics = {}

@@ -7,7 +7,7 @@ This file provides essential information for AI coding agents working on ghlite.
 - **Type**: Neovim plugin written in Lua
 - **Purpose**: Augment GitHub PR review workflow in Neovim using `gh` CLI
 - **Requirements**: Neovim 0.10+, GitHub CLI (`gh`)
-- **Optional Dependencies**: Diffview.nvim for enhanced diff viewing
+- **Optional Dependencies**: Diffview.nvim or CodeDiff.nvim for enhanced diff viewing
 
 ## Build/Lint/Test Commands
 
