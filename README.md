@@ -82,6 +82,16 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
   }
 ```
 
+## Development
+
+Run the test suite with:
+
+```bash
+make test
+```
+
+The test target bootstraps [mini.nvim](https://github.com/echasnovski/mini.nvim) into `.tests/` and runs `mini.test` in headless Neovim.
+
 ## PR Review using ghlite.nvim
 
 ### Quick PR review
