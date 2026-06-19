@@ -2,6 +2,7 @@ local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
 local function reset_state()
+  package.loaded['ghlite.pr_utils'] = nil
   local state = require('ghlite.state')
   state.selected_PR = nil
   state.comments_list = {}
