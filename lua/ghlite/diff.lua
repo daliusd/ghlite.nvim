@@ -1,5 +1,6 @@
 local comments = require('ghlite.comments')
 local config = require('ghlite.config')
+local diff_utils = require('ghlite.diff_utils')
 local gh = require('ghlite.gh')
 local pr_commands = require('ghlite.pr_commands')
 local pr_utils = require('ghlite.pr_utils')
@@ -16,55 +17,13 @@ end
 
 --- @return string|nil
 local function get_diff_tool()
-  local configured = config.s.diff_tool
-
-  if configured == 'diffview' then
-    return 'diffview'
-  elseif configured == 'codediff' then
-    return 'codediff'
-  else -- 'auto'
-    if is_command_available('DiffviewOpen') then
-      return 'diffview'
-    elseif is_command_available('CodeDiff') then
-      return 'codediff'
-    end
-    return nil
-  end
+  return diff_utils.get_diff_tool(config.s.diff_tool, is_command_available)
 end
 
 local function construct_mappings(diff_content, cb)
   utils.get_git_root(function(git_root)
-    local current_filename = nil
-    local current_line_in_file = 0
-
-    for line_num = 1, #diff_content do
-      local line = diff_content[line_num]
-
-      if line:match('^%-%-%-') then
-        do
-        end -- this shouldn't become line
-      elseif line:match('^+++') then
-        current_filename = line:match('^+++%s*(.+)')
-        current_filename = git_root .. '/' .. current_filename:gsub('^b/', '')
-      elseif line:sub(1, 2) == '@@' then
-        local pos = vim.split(line, ' ')[3]
-        local lineno = tonumber(vim.split(pos, ',')[1])
-        if lineno then
-          current_line_in_file = lineno
-        end
-      elseif current_filename then
-        if state.filename_line_to_diff_line[current_filename] == nil then
-          state.filename_line_to_diff_line[current_filename] = {}
-        end
-        state.filename_line_to_diff_line[current_filename][current_line_in_file] = line_num
-
-        state.diff_line_to_filename_line[line_num] = { current_filename, current_line_in_file }
-        if line:sub(1, 1) ~= '-' then
-          current_line_in_file = current_line_in_file + 1
-        end
-      end
-    end
-
+    state.filename_line_to_diff_line, state.diff_line_to_filename_line =
+      diff_utils.construct_mappings(diff_content, git_root)
     cb()
   end)
 end
