@@ -188,6 +188,370 @@ T['get_codediff_filename parses fallback URLs and validates PR commit'] = functi
   end)
 end
 
+T['comment_on_line creates a new comment and stores it locally'] = function()
+  with_immediate_schedule(function()
+    reset_state()
+    local comments = require('ghlite.comments')
+    local state = require('ghlite.state')
+    state.selected_PR = { number = 12, headRefOid = 'abc123' }
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two', 'three' })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    local new_comment_call
+    local refresh_count = 0
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        get_selected_pr = function(cb)
+          cb(state.selected_PR)
+        end,
+        is_pr_checked_out = function(cb)
+          cb(true)
+        end,
+        get_checked_out_pr = function(cb)
+          cb(state.selected_PR)
+        end,
+      },
+      ['ghlite.utils'] = {
+        get_git_root = function(cb)
+          cb('/repo')
+        end,
+        get_comment = function(_, _, _, _, _, cb)
+          cb('new body')
+        end,
+        notify = function() end,
+      },
+      ['ghlite.gh'] = {
+        new_comment = function(selected_pr, body, path, start_line, line, cb)
+          new_comment_call = {
+            selected_pr = selected_pr,
+            body = body,
+            path = path,
+            start_line = start_line,
+            line = line,
+          }
+          cb({
+            id = 101,
+            html_url = 'https://github.test/comment/101',
+            path = 'lua/a.lua',
+            line = line,
+            start_line = start_line,
+            user = { login = 'alice' },
+            body = body,
+            updated_at = 'now',
+            diff_hunk = '@@ -2 +2 @@',
+          })
+        end,
+      },
+      ['ghlite.comments'] = {
+        load_comments_on_current_buffer = function()
+          refresh_count = refresh_count + 1
+        end,
+      },
+    }, function()
+      comments.comment_on_line()
+    end)
+
+    expect.equality(new_comment_call, {
+      selected_pr = state.selected_PR,
+      body = 'new body',
+      path = 'lua/a.lua',
+      start_line = 2,
+      line = 2,
+    })
+    expect.equality(#state.comments_list['/repo/lua/a.lua'], 1)
+    expect.equality(state.comments_list['/repo/lua/a.lua'][1].id, 101)
+    expect.equality(state.comments_list['/repo/lua/a.lua'][1].comments[1].body, 'new body')
+    expect.equality(refresh_count, 1)
+
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end
+
+T['comment_on_line replies to the existing conversation and updates content'] = function()
+  with_immediate_schedule(function()
+    reset_state()
+    local comments = require('ghlite.comments')
+    local state = require('ghlite.state')
+    state.selected_PR = { number = 12, headRefOid = 'abc123' }
+    state.comments_list = {
+      ['/repo/lua/a.lua'] = {
+        {
+          id = 55,
+          line = 2,
+          start_line = 2,
+          url = 'https://github.test/comment/55',
+          content = 'old content',
+          comments = {
+            {
+              id = 55,
+              url = 'https://github.test/comment/55',
+              path = 'lua/a.lua',
+              line = 2,
+              start_line = 2,
+              user = 'alice',
+              body = 'Root',
+              updated_at = 'before',
+              diff_hunk = '@@ -2 +2 @@',
+            },
+          },
+        },
+      },
+    }
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two' })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    local reply_call
+    local refresh_count = 0
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        get_selected_pr = function(cb)
+          cb(state.selected_PR)
+        end,
+        is_pr_checked_out = function(cb)
+          cb(true)
+        end,
+        get_checked_out_pr = function(cb)
+          cb(state.selected_PR)
+        end,
+      },
+      ['ghlite.utils'] = {
+        get_git_root = function(cb)
+          cb('/repo')
+        end,
+        get_comment = function(_, _, _, _, _, cb)
+          cb('reply body')
+        end,
+        notify = function() end,
+      },
+      ['ghlite.gh'] = {
+        reply_to_comment = function(pr_number, body, reply_to, cb)
+          reply_call = { pr_number = pr_number, body = body, reply_to = reply_to }
+          cb({
+            id = 56,
+            html_url = 'https://github.test/comment/56',
+            path = 'lua/a.lua',
+            line = 2,
+            start_line = 2,
+            user = { login = 'bob' },
+            body = body,
+            updated_at = 'after',
+            diff_hunk = '@@ -2 +2 @@',
+          })
+        end,
+      },
+      ['ghlite.comments'] = {
+        load_comments_on_current_buffer = function()
+          refresh_count = refresh_count + 1
+        end,
+      },
+    }, function()
+      comments.comment_on_line()
+    end)
+
+    local conversation = state.comments_list['/repo/lua/a.lua'][1]
+    expect.equality(reply_call, { pr_number = 12, body = 'reply body', reply_to = 55 })
+    expect.equality(#conversation.comments, 2)
+    expect.equality(conversation.comments[2].body, 'reply body')
+    expect.equality(conversation.content:find('reply body', 1, true) ~= nil, true)
+    expect.equality(refresh_count, 1)
+
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end
+
+T['update_comment updates the selected own comment and refreshes content'] = function()
+  with_immediate_schedule(function()
+    reset_state()
+    local comments = require('ghlite.comments')
+    local state = require('ghlite.state')
+    state.comments_list = {
+      ['/repo/lua/a.lua'] = {
+        {
+          id = 55,
+          line = 2,
+          start_line = 2,
+          url = 'https://github.test/comment/55',
+          content = 'old content',
+          comments = {
+            {
+              id = 55,
+              url = 'https://github.test/comment/55',
+              path = 'lua/a.lua',
+              line = 2,
+              start_line = 2,
+              user = 'alice',
+              body = 'Old body',
+              updated_at = 'before',
+              diff_hunk = '@@ -2 +2 @@',
+            },
+          },
+        },
+      },
+    }
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two' })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, cb)
+      cb(items[1], 1)
+    end
+
+    local update_call
+    local refresh_count = 0
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        is_pr_checked_out = function(cb)
+          cb(true)
+        end,
+        get_checked_out_pr = function(cb)
+          cb({ number = 12 })
+        end,
+      },
+      ['ghlite.utils'] = {
+        get_comment = function(_, _, _, _, _, cb)
+          cb('Updated body')
+        end,
+        notify = function() end,
+      },
+      ['ghlite.gh'] = {
+        get_user = function(cb)
+          cb('alice')
+        end,
+        update_comment = function(comment_id, body, cb)
+          update_call = { comment_id = comment_id, body = body }
+          cb({ id = comment_id, body = body })
+        end,
+      },
+      ['ghlite.comments'] = {
+        load_comments_on_current_buffer = function()
+          refresh_count = refresh_count + 1
+        end,
+      },
+    }, function()
+      comments.update_comment()
+    end)
+
+    vim.ui.select = original_select
+
+    local conversation = state.comments_list['/repo/lua/a.lua'][1]
+    expect.equality(update_call, { comment_id = 55, body = 'Updated body' })
+    expect.equality(conversation.comments[1].body, 'Updated body')
+    expect.equality(conversation.content:find('Updated body', 1, true) ~= nil, true)
+    expect.equality(refresh_count, 1)
+
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end
+
+T['delete_comment deletes the selected own comment and refreshes content'] = function()
+  with_immediate_schedule(function()
+    reset_state()
+    local comments = require('ghlite.comments')
+    local state = require('ghlite.state')
+    state.comments_list = {
+      ['/repo/lua/a.lua'] = {
+        {
+          id = 55,
+          line = 2,
+          start_line = 2,
+          url = 'https://github.test/comment/55',
+          content = 'old content',
+          comments = {
+            {
+              id = 55,
+              url = 'https://github.test/comment/55',
+              path = 'lua/a.lua',
+              line = 2,
+              start_line = 2,
+              user = 'alice',
+              body = 'Delete me',
+              updated_at = 'before',
+              diff_hunk = '@@ -2 +2 @@',
+            },
+            {
+              id = 56,
+              url = 'https://github.test/comment/56',
+              path = 'lua/a.lua',
+              line = 2,
+              start_line = 2,
+              user = 'bob',
+              body = 'Keep me',
+              updated_at = 'after',
+              diff_hunk = '@@ -2 +2 @@',
+            },
+          },
+        },
+      },
+    }
+
+    local bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two' })
+    vim.api.nvim_set_current_buf(bufnr)
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+    local original_select = vim.ui.select
+    vim.ui.select = function(items, _, cb)
+      cb(items[1], 1)
+    end
+
+    local deleted_comment_id
+    local refresh_count = 0
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        is_pr_checked_out = function(cb)
+          cb(true)
+        end,
+        get_checked_out_pr = function(cb)
+          cb({ number = 12 })
+        end,
+      },
+      ['ghlite.utils'] = {
+        notify = function() end,
+      },
+      ['ghlite.gh'] = {
+        get_user = function(cb)
+          cb('alice')
+        end,
+        delete_comment = function(comment_id, cb)
+          deleted_comment_id = comment_id
+          cb('')
+        end,
+      },
+      ['ghlite.comments'] = {
+        load_comments_on_current_buffer = function()
+          refresh_count = refresh_count + 1
+        end,
+      },
+    }, function()
+      comments.delete_comment()
+    end)
+
+    vim.ui.select = original_select
+
+    local conversation = state.comments_list['/repo/lua/a.lua'][1]
+    expect.equality(deleted_comment_id, 55)
+    expect.equality(#conversation.comments, 1)
+    expect.equality(conversation.comments[1].id, 56)
+    expect.equality(conversation.content:find('Keep me', 1, true) ~= nil, true)
+    expect.equality(refresh_count, 1)
+
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+  end)
+end
+
 T['buffer type helpers identify diffview and codediff buffers'] = function()
   local comments = require('ghlite.comments')
 
