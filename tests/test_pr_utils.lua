@@ -1,3 +1,5 @@
+local async = require('async')
+
 local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
@@ -48,11 +50,12 @@ T['get_selected_pr returns already selected PR without calling gh'] = function()
     },
   }, function()
     local pr_utils = require('ghlite.pr_utils')
-    local result
 
-    pr_utils.get_selected_pr(function(pr)
-      result = pr
-    end)
+    local result = async
+      .run(function()
+        return pr_utils.get_selected_pr()
+      end)
+      :wait(1000)
 
     expect.equality(result, state.selected_PR)
   end)
@@ -64,18 +67,19 @@ T['get_selected_pr stores current PR when none is selected'] = function()
 
   with_overrides({
     ['ghlite.gh'] = {
-      get_current_pr = function(cb)
-        cb(current_pr)
+      get_current_pr = function()
+        return current_pr
       end,
     },
   }, function()
     local state = require('ghlite.state')
     local pr_utils = require('ghlite.pr_utils')
-    local result
 
-    pr_utils.get_selected_pr(function(pr)
-      result = pr
-    end)
+    local result = async
+      .run(function()
+        return pr_utils.get_selected_pr()
+      end)
+      :wait(1000)
 
     expect.equality(result, current_pr)
     expect.equality(state.selected_PR, current_pr)
@@ -89,17 +93,18 @@ T['is_pr_checked_out compares selected PR head branch to current branch'] = func
 
   with_overrides({
     ['ghlite.utils'] = {
-      get_current_git_branch_name = function(cb)
-        cb('feature')
+      get_current_git_branch_name = function()
+        return 'feature'
       end,
     },
   }, function()
     local pr_utils = require('ghlite.pr_utils')
-    local result
 
-    pr_utils.is_pr_checked_out(function(is_checked_out)
-      result = is_checked_out
-    end)
+    local result = async
+      .run(function()
+        return pr_utils.is_pr_checked_out()
+      end)
+      :wait(1000)
 
     expect.equality(result, true)
   end)
@@ -112,48 +117,80 @@ T['get_checked_out_pr checks out selected PR after confirmation when branch diff
 
   local notified = {}
   local checked_out_number
-  local original_schedule = vim.schedule
-  local original_confirm = vim.fn.confirm
-  vim.schedule = function(cb)
-    cb()
-  end
-  vim.fn.confirm = function(message, choices, default)
-    expect.equality(message, 'Do you want to check out selected PR?')
-    expect.equality(choices, '&Yes\n&No')
-    expect.equality(default, 1)
-    return 1
-  end
 
   with_overrides({
     ['ghlite.utils'] = {
-      get_current_git_branch_name = function(cb)
-        cb('main')
+      get_current_git_branch_name = function()
+        return 'main'
+      end,
+    },
+    ['ghlite.ui'] = {
+      confirm = function(message, choices, default)
+        expect.equality(message, 'Do you want to check out selected PR?')
+        expect.equality(choices, '&Yes\n&No')
+        expect.equality(default, 1)
+        return 1
       end,
       notify = function(message)
         table.insert(notified, message)
       end,
     },
     ['ghlite.gh'] = {
-      checkout_pr = function(number, cb)
+      checkout_pr = function(number)
         checked_out_number = number
-        cb()
       end,
     },
   }, function()
     local pr_utils = require('ghlite.pr_utils')
-    local result
 
-    pr_utils.get_checked_out_pr(function(pr)
-      result = pr
-    end)
+    local result = async
+      .run(function()
+        return pr_utils.get_checked_out_pr()
+      end)
+      :wait(1000)
 
     expect.equality(checked_out_number, 9)
     expect.equality(result, state.selected_PR)
     expect.equality(notified, { 'Checking out PR #9...', 'PR check out finished.' })
   end)
+end
 
-  vim.schedule = original_schedule
-  vim.fn.confirm = original_confirm
+T['get_checked_out_pr stays silent when the user declines the check out'] = function()
+  reset_state()
+  local state = require('ghlite.state')
+  state.selected_PR = { number = 9, headRefName = 'feature' }
+
+  with_overrides({
+    ['ghlite.utils'] = {
+      get_current_git_branch_name = function()
+        return 'main'
+      end,
+    },
+    ['ghlite.ui'] = {
+      confirm = function()
+        return 2
+      end,
+      notify = function()
+        error('notify should not be called on decline')
+      end,
+    },
+    ['ghlite.gh'] = {
+      checkout_pr = function()
+        error('checkout_pr should not be called on decline')
+      end,
+    },
+  }, function()
+    local pr_utils = require('ghlite.pr_utils')
+
+    local result, reason = async
+      .run(function()
+        return pr_utils.get_checked_out_pr()
+      end)
+      :wait(1000)
+
+    expect.equality(result, nil)
+    expect.equality(reason, 'declined')
+  end)
 end
 
 return T

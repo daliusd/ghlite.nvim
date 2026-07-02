@@ -1,13 +1,15 @@
+local async = require('async')
+
 local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
-local function reload_gh_with_utils(utils_overrides)
+local function reload_gh_with_system(system_overrides)
   package.loaded['ghlite.gh'] = nil
-  local utils = require('ghlite.utils')
+  local system = require('ghlite.system')
   local originals = {}
-  for key, value in pairs(utils_overrides) do
-    originals[key] = utils[key]
-    utils[key] = value
+  for key, value in pairs(system_overrides) do
+    originals[key] = system[key]
+    system[key] = value
   end
 
   local gh = require('ghlite.gh')
@@ -15,24 +17,25 @@ local function reload_gh_with_utils(utils_overrides)
   return gh,
     function()
       for key, value in pairs(originals) do
-        utils[key] = value
+        system[key] = value
       end
       package.loaded['ghlite.gh'] = nil
     end
 end
 
 T['get_current_pr parses gh JSON response'] = function()
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(cmd, cb)
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
       expect.equality(cmd, 'gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision')
-      cb('{"number":42,"headRefName":"feature"}', '')
+      return '{"number":42,"headRefName":"feature"}', ''
     end,
   })
 
-  local result
-  gh.get_current_pr(function(pr)
-    result = pr
-  end)
+  local result = async
+    .run(function()
+      return gh.get_current_pr()
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(result.number, 42)
@@ -41,21 +44,21 @@ end
 
 T['get_current_pr falls back when gh does not know baseRefOid'] = function()
   local calls = {}
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(cmd, cb)
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
       table.insert(calls, cmd)
       if #calls == 1 then
-        cb('', 'Unknown JSON field: "baseRefOid"')
-      else
-        cb('{"number":7,"headRefName":"fallback"}', '')
+        return '', 'Unknown JSON field: "baseRefOid"'
       end
+      return '{"number":7,"headRefName":"fallback"}', ''
     end,
   })
 
-  local result
-  gh.get_current_pr(function(pr)
-    result = pr
-  end)
+  local result = async
+    .run(function()
+      return gh.get_current_pr()
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(calls, {
@@ -67,16 +70,17 @@ T['get_current_pr falls back when gh does not know baseRefOid'] = function()
 end
 
 T['get_current_pr returns nil for invalid JSON response'] = function()
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(_, cb)
-      cb('not-json', '')
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'not-json', ''
     end,
   })
 
-  local result = 'not-called'
-  gh.get_current_pr(function(pr)
-    result = pr
-  end)
+  local result = async
+    .run(function()
+      return gh.get_current_pr()
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(result, nil)
@@ -84,21 +88,21 @@ end
 
 T['get_pr_list falls back when gh does not know baseRefOid'] = function()
   local calls = {}
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(cmd, cb)
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
       table.insert(calls, cmd)
       if #calls == 1 then
-        cb('', 'Unknown JSON field: "baseRefOid"')
-      else
-        cb('[{"number":5,"headRefName":"fallback"}]', '')
+        return '', 'Unknown JSON field: "baseRefOid"'
       end
+      return '[{"number":5,"headRefName":"fallback"}]', ''
     end,
   })
 
-  local result
-  gh.get_pr_list(function(prs)
-    result = prs
-  end)
+  local result = async
+    .run(function()
+      return gh.get_pr_list()
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(calls, {
@@ -109,16 +113,17 @@ T['get_pr_list falls back when gh does not know baseRefOid'] = function()
 end
 
 T['get_pr_list returns empty list for invalid JSON response'] = function()
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(_, cb)
-      cb('not-json', '')
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'not-json', ''
     end,
   })
 
-  local result
-  gh.get_pr_list(function(prs)
-    result = prs
-  end)
+  local result = async
+    .run(function()
+      return gh.get_pr_list()
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(result, {})
@@ -129,26 +134,26 @@ T['load_comments filters comments without a line before grouping'] = function()
   local grouped_input
   local comments_utils = require('ghlite.comments_utils')
   local original_group_comments = comments_utils.group_comments
-  comments_utils.group_comments = function(comments, cb)
+  comments_utils.group_comments = function(comments)
     grouped_input = comments
-    cb({ grouped = true })
+    return { grouped = true }
   end
 
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(cmd, cb)
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
       table.insert(calls, cmd)
       if #calls == 1 then
-        cb('owner/repo\n', '')
-      else
-        cb('[{"id":1,"line":10},{"id":2,"line":null}]', '')
+        return 'owner/repo\n', ''
       end
+      return '[{"id":1,"line":10},{"id":2,"line":null}]', ''
     end,
   })
 
-  local result
-  gh.load_comments(12, function(comments)
-    result = comments
-  end)
+  local result = async
+    .run(function()
+      return gh.load_comments(12)
+    end)
+    :wait(1000)
   restore()
   comments_utils.group_comments = original_group_comments
 
@@ -164,21 +169,22 @@ end
 T['new_comment builds gh api request with start_line for ranges'] = function()
   local str_calls = {}
   local api_request
-  local gh, restore = reload_gh_with_utils({
-    system_str_cb = function(cmd, cb)
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
       table.insert(str_calls, cmd)
-      cb('owner/repo\n', '')
+      return 'owner/repo\n', ''
     end,
-    system_cb = function(cmd, cb)
+    run = function(cmd)
       api_request = cmd
-      cb('{"id":123}')
+      return '{"id":123}'
     end,
   })
 
-  local response
-  gh.new_comment({ number = 12, headRefOid = 'abc123' }, 'Body', 'lua/example.lua', 3, 5, function(resp)
-    response = resp
-  end)
+  local response = async
+    .run(function()
+      return gh.new_comment({ number = 12, headRefOid = 'abc123' }, 'Body', 'lua/example.lua', 3, 5)
+    end)
+    :wait(1000)
   restore()
 
   expect.equality(str_calls, { 'gh repo view --json nameWithOwner -q .nameWithOwner' })

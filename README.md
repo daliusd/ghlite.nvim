@@ -13,6 +13,8 @@ instead of replacing it like other plugins do.
 
 - [GitHub CLI (gh)](https://cli.github.com/)
 
+- [async.nvim](https://github.com/lewis6991/async.nvim)
+
 - If you are using fzf-lua or telescope you might want to checkout how to
   override UI select. E.g. `vim.cmd('FzfLua register_ui_select')`
 
@@ -29,6 +31,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
 ```lua
   {
     'daliusd/ghlite.nvim',
+    dependencies = { 'lewis6991/async.nvim' },
     config = function()
       require('ghlite').setup({
         debug = false, -- if set to true debugging information is written to ~/.ghlite.log file

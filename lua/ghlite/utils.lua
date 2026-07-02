@@ -1,28 +1,6 @@
-local config = require('ghlite.config')
+local system = require('ghlite.system')
 
 local M = {}
-
-function M.system_str_cb(cmd, cb)
-  local cmd_split = vim.split(cmd, ' ')
-  vim.system(cmd_split, { text = true }, function(result)
-    if type(cb) == 'function' then
-      if #result.stderr > 0 then
-        config.log('system_str_cb error', result.stderr)
-        M.notify(result.stderr, vim.log.levels.ERROR)
-      end
-
-      cb(result.stdout, result.stderr)
-    end
-  end)
-end
-
-function M.system_cb(cmd, cb)
-  vim.system(cmd, { text = true }, function(result)
-    if type(cb) == 'function' then
-      cb(result.stdout)
-    end
-  end)
-end
 
 function M.filter_array(arr, condition)
   local result = {}
@@ -41,28 +19,25 @@ function M.is_empty(value)
   return false
 end
 
-function M.get_git_root(cb)
-  M.system_str_cb('git rev-parse --show-toplevel', function(result)
-    cb(vim.split(result, '\n')[1])
-  end)
+--- @async
+--- @return string
+function M.get_git_root()
+  local result = system.run_str('git rev-parse --show-toplevel')
+  return vim.split(result, '\n')[1]
 end
 
-function M.get_git_merge_base(baseCommitId, headCommitId, cb)
-  M.system_str_cb('git merge-base ' .. baseCommitId .. ' ' .. headCommitId, function(result)
-    cb(vim.split(result, '\n')[1])
-  end)
+--- @async
+--- @return string
+function M.get_git_merge_base(baseCommitId, headCommitId)
+  local result = system.run_str('git merge-base ' .. baseCommitId .. ' ' .. headCommitId)
+  return vim.split(result, '\n')[1]
 end
 
-function M.get_current_git_branch_name(cb)
-  M.system_str_cb('git branch --show-current', function(result)
-    cb(vim.split(result, '\n')[1])
-  end)
-end
-
-function M.notify(message, level)
-  vim.schedule(function()
-    vim.notify(message, level)
-  end)
+--- @async
+--- @return string
+function M.get_current_git_branch_name()
+  local result = system.run_str('git branch --show-current')
+  return vim.split(result, '\n')[1]
 end
 
 function M.get_comment(buf_name, split_command, prompt, content, key_binding, callback)

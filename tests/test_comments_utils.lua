@@ -61,16 +61,16 @@ T['prepare_content includes range, comments, and diff hunk'] = function()
 end
 
 T['group_comments groups replies under the root comment and keys by full path'] = function()
+  local async = require('async')
   local utils = require('ghlite.utils')
   local original_get_git_root = utils.get_git_root
-  utils.get_git_root = function(cb)
-    cb('/repo')
+  utils.get_git_root = function()
+    return '/repo'
   end
 
   local comments_utils = require('ghlite.comments_utils')
-  local result
 
-  comments_utils.group_comments({
+  local comments = {
     {
       id = 1,
       html_url = 'https://github.test/comment/1',
@@ -94,9 +94,13 @@ T['group_comments groups replies under the root comment and keys by full path'] 
       updated_at = 'later',
       diff_hunk = '@@ -10 +10 @@',
     },
-  }, function(grouped)
-    result = grouped
-  end)
+  }
+
+  local result = async
+    .run(function()
+      return comments_utils.group_comments(comments)
+    end)
+    :wait(1000)
 
   utils.get_git_root = original_get_git_root
 

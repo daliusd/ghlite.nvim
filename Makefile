@@ -1,15 +1,20 @@
 MINI_NVIM_DIR := .tests/site/pack/deps/start/mini.nvim
+ASYNC_NVIM_DIR := .tests/site/pack/deps/start/async.nvim
 
 .PHONY: test test-deps clean-test-deps
 
 test: test-deps
 	nvim --headless --noplugin -u tests/minimal_init.lua -c "lua MiniTest.run()"
 
-test-deps: $(MINI_NVIM_DIR)
+test-deps: $(MINI_NVIM_DIR) $(ASYNC_NVIM_DIR)
 
 $(MINI_NVIM_DIR):
 	mkdir -p $(dir $(MINI_NVIM_DIR))
 	git clone --filter=blob:none https://github.com/echasnovski/mini.nvim $(MINI_NVIM_DIR)
+
+$(ASYNC_NVIM_DIR):
+	mkdir -p $(dir $(ASYNC_NVIM_DIR))
+	git clone --filter=blob:none https://github.com/lewis6991/async.nvim $(ASYNC_NVIM_DIR)
 
 clean-test-deps:
 	rm -rf .tests

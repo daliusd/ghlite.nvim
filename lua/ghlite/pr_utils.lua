@@ -8,72 +8,70 @@
 
 local gh = require('ghlite.gh')
 local state = require('ghlite.state')
+local ui = require('ghlite.ui')
 local utils = require('ghlite.utils')
 
 require('ghlite.types')
 
 local M = {}
 
---- @param cb fun(pr: PullRequest | nil)
-function M.get_selected_pr(cb)
+--- @async
+--- @return PullRequest|nil
+function M.get_selected_pr()
   if state.selected_PR ~= nil then
-    return cb(state.selected_PR)
+    return state.selected_PR
   end
-  gh.get_current_pr(function(current_pr)
-    if current_pr ~= nil then
-      state.selected_PR = current_pr
-      cb(current_pr)
-    else
-      cb(nil)
-    end
-  end)
+  local current_pr = gh.get_current_pr()
+  if current_pr ~= nil then
+    state.selected_PR = current_pr
+    return current_pr
+  end
+  return nil
 end
 
---- @return PullRequest|nil returns checked out pr or nil if user does not approve check out
-local function approve_and_chechkout_selected_pr(cb)
-  vim.schedule(function()
-    local choice = vim.fn.confirm('Do you want to check out selected PR?', '&Yes\n&No', 1)
+--- @async
+--- @return PullRequest|nil pr checked out pr or nil if user does not approve check out
+--- @return string|nil reason 'declined' when the user rejects the check out
+local function approve_and_chechkout_selected_pr()
+  local choice = ui.confirm('Do you want to check out selected PR?', '&Yes\n&No', 1)
 
-    if choice == 1 then
-      utils.notify(string.format('Checking out PR #%d...', state.selected_PR.number))
-      gh.checkout_pr(state.selected_PR.number, function()
-        utils.notify('PR check out finished.')
-        cb(state.selected_PR)
-      end)
-    end
-  end)
+  if choice ~= 1 then
+    return nil, 'declined'
+  end
+
+  ui.notify(string.format('Checking out PR #%d...', state.selected_PR.number))
+  gh.checkout_pr(state.selected_PR.number)
+  ui.notify('PR check out finished.')
+  return state.selected_PR
 end
 
-function M.is_pr_checked_out(cb)
+--- @async
+--- @return boolean
+function M.is_pr_checked_out()
   if state.selected_PR == nil then
-    cb(false)
-  else
-    utils.get_current_git_branch_name(function(current_branch)
-      cb(state.selected_PR.headRefName == current_branch)
-    end)
+    return false
   end
+  return state.selected_PR.headRefName == utils.get_current_git_branch_name()
 end
 
---- @return PullRequest|nil returns pull request or nil in case pull request is not checked out
-function M.get_checked_out_pr(cb)
-  utils.get_current_git_branch_name(function(current_branch)
-    if state.selected_PR ~= nil then
-      if state.selected_PR.headRefName ~= current_branch then
-        approve_and_chechkout_selected_pr(cb)
-      else
-        cb(state.selected_PR)
-      end
-    else
-      gh.get_current_pr(function(current_pr)
-        if current_pr ~= nil then
-          state.selected_PR = current_pr
-          cb(current_pr)
-        else
-          cb(nil)
-        end
-      end)
+--- @async
+--- @return PullRequest|nil pr pull request or nil in case pull request is not checked out
+--- @return string|nil reason 'declined' when the user rejects the check out
+function M.get_checked_out_pr()
+  local current_branch = utils.get_current_git_branch_name()
+  if state.selected_PR ~= nil then
+    if state.selected_PR.headRefName ~= current_branch then
+      return approve_and_chechkout_selected_pr()
     end
-  end)
+    return state.selected_PR
+  end
+
+  local current_pr = gh.get_current_pr()
+  if current_pr ~= nil then
+    state.selected_PR = current_pr
+    return current_pr
+  end
+  return nil
 end
 
 return M

@@ -1,3 +1,5 @@
+local async = require('async')
+
 local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
@@ -29,29 +31,23 @@ T['is_empty treats non-empty values as not empty'] = function()
   expect.equality(utils.is_empty(1), false)
 end
 
-T['get_git helpers pass the first output line to callback'] = function()
+T['get_git helpers return the first output line'] = function()
   local utils = require('ghlite.utils')
-  local original_system_str_cb = utils.system_str_cb
+  local system = require('ghlite.system')
+  local original_run_str = system.run_str
   local calls = {}
-  utils.system_str_cb = function(cmd, cb)
+  system.run_str = function(cmd)
     table.insert(calls, cmd)
-    cb('first-line\nsecond-line\n')
+    return 'first-line\nsecond-line\n', ''
   end
 
-  local git_root
-  local merge_base
-  local branch
-  utils.get_git_root(function(result)
-    git_root = result
-  end)
-  utils.get_git_merge_base('base', 'head', function(result)
-    merge_base = result
-  end)
-  utils.get_current_git_branch_name(function(result)
-    branch = result
-  end)
+  local git_root, merge_base, branch = async
+    .run(function()
+      return utils.get_git_root(), utils.get_git_merge_base('base', 'head'), utils.get_current_git_branch_name()
+    end)
+    :wait(1000)
 
-  utils.system_str_cb = original_system_str_cb
+  system.run_str = original_run_str
 
   expect.equality(calls, {
     'git rev-parse --show-toplevel',
