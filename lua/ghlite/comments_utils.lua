@@ -29,7 +29,13 @@ local function format_comment(comment)
 end
 
 --- @param comments Comment[]
-function M.prepare_content(comments)
+function M.prepare_content(comments, opts)
+  opts = opts or {}
+  local comment_hunk = opts.comment_hunk
+  if comment_hunk == nil then
+    comment_hunk = true
+  end
+
   local content = ''
   if #comments > 0 and comments[1].start_line ~= vim.NIL and comments[1].start_line ~= comments[1].line then
     content = string.format('📓 Comment on lines %d to %d\n\n', comments[1].start_line, comments[1].line)
@@ -39,7 +45,7 @@ function M.prepare_content(comments)
     content = content .. format_comment(comment)
   end
 
-  if #comments > 0 then
+  if comment_hunk and #comments > 0 then
     content = content .. '\n🪓 Diff hunk:\n' .. comments[1].diff_hunk .. '\n'
   end
 
@@ -48,7 +54,7 @@ end
 
 --- @async
 --- @return table<string, GroupedComment[]>
-function M.group_comments(gh_comments)
+function M.group_comments(gh_comments, opts)
   local git_root = utils.get_git_root()
 
   --- @type table<number, Comment[]>
@@ -74,7 +80,7 @@ function M.group_comments(gh_comments)
       line = comments[1].line,
       start_line = comments[1].start_line,
       url = comments[#comments].url,
-      content = M.prepare_content(comments),
+      content = M.prepare_content(comments, opts),
       comments = comments,
     }
 

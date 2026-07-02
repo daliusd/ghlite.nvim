@@ -6,6 +6,7 @@ M.s = {
   diff_split = 'vsplit',
   diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto'
   comment_split = 'split',
+  comment_hunk = true,
   open_command = 'open',
   merge = {
     approved = '--squash',

@@ -39,6 +39,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         diff_split = 'vsplit', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto' - which tool to use for GHLitePRDiffview
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
+        comment_hunk = true, -- show GitHub diff hunks in loaded PR comment diagnostics and quickfix entries
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         merge = {
           approved = '--squash',

@@ -60,6 +60,23 @@ T['prepare_content includes range, comments, and diff hunk'] = function()
   )
 end
 
+T['prepare_content can omit diff hunk'] = function()
+  local comments_utils = require('ghlite.comments_utils')
+
+  local content = comments_utils.prepare_content({
+    {
+      user = 'alice',
+      updated_at = 'today',
+      body = 'First comment',
+      start_line = vim.NIL,
+      line = 5,
+      diff_hunk = '@@ -3,3 +3,3 @@',
+    },
+  }, { comment_hunk = false })
+
+  expect.equality(content, '✍️ alice at today:\nFirst comment\n\n')
+end
+
 T['group_comments groups replies under the root comment and keys by full path'] = function()
   local async = require('async')
   local utils = require('ghlite.utils')

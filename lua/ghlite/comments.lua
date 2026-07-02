@@ -258,7 +258,8 @@ M.comment_on_line = function()
               ui.notify('Reply sent.')
               local new_comment = comments_utils.convert_comment(resp)
               table.insert(grouped_comment.comments, new_comment)
-              grouped_comment.content = comments_utils.prepare_content(grouped_comment.comments)
+              grouped_comment.content =
+                comments_utils.prepare_content(grouped_comment.comments, { comment_hunk = config.s.comment_hunk })
               M.load_comments_on_current_buffer()
             else
               ui.notify('Failed to reply to comment.', vim.log.levels.WARN)
@@ -296,7 +297,7 @@ M.comment_on_line = function()
                   start_line = current_start_line,
                   url = resp.html_url,
                   comments = { new_comment },
-                  content = comments_utils.prepare_content({ new_comment }),
+                  content = comments_utils.prepare_content({ new_comment }, { comment_hunk = config.s.comment_hunk }),
                 }
                 if state.comments_list[current_filename] == nil then
                   state.comments_list[current_filename] = { new_comment_group }
@@ -387,7 +388,8 @@ local function edit_comment_body(comment, conversation)
         if resp['errors'] == nil then
           ui.notify('Comment updated.')
           comment.body = resp.body
-          conversation.content = comments_utils.prepare_content(conversation.comments)
+          conversation.content =
+            comments_utils.prepare_content(conversation.comments, { comment_hunk = config.s.comment_hunk })
 
           M.load_comments_on_current_buffer()
         else
@@ -458,7 +460,7 @@ M.delete_comment = function()
 
       local convo = conversations_list[idx]
       convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
-      convo.content = comments_utils.prepare_content(convo.comments)
+      convo.content = comments_utils.prepare_content(convo.comments, { comment_hunk = config.s.comment_hunk })
 
       ui.notify('Comment deleted.')
       M.load_comments_on_current_buffer()

@@ -81,7 +81,7 @@ function M.load_comments(pr_number)
   config.log('Valid comments count', #comments)
   config.log('comments', comments)
 
-  local grouped_comments = comments_utils.group_comments(comments)
+  local grouped_comments = comments_utils.group_comments(comments, { comment_hunk = config.s.comment_hunk })
   config.log('Valid comments groups count:', #grouped_comments)
   config.log('grouped comments', grouped_comments)
 
