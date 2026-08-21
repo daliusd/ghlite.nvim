@@ -66,6 +66,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             merge = 'cM',
             comment = 'ca',
             diff = 'cp',
+            checkout = 'co',
           },
         },
       })
@@ -189,6 +190,8 @@ Supported key bindings:
 * `ca` to write top level PR comment
 
 * `cp` to open diff view
+
+* `co` to checkout the PR (only shown when the PR isn't already checked out)
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.

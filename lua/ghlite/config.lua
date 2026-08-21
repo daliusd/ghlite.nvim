@@ -31,6 +31,7 @@ M.s = {
       merge = 'cM',
       comment = 'ca',
       diff = 'cp',
+      checkout = 'co',
     },
   },
 }

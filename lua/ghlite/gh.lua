@@ -42,7 +42,7 @@ end
 function M.get_pr_info(pr_number)
   local result = system.run_str(
     f(
-      'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt',
+      'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName',
       pr_number
     )
   )

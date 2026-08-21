@@ -180,6 +180,17 @@ function M.checkout_pr_under_cursor(buf)
   end)
 end
 
+--- Check out the PR currently shown in the PR view and reload it.
+--- @param pr_number number
+function M.checkout_pr_in_view(pr_number)
+  return task.run(function()
+    ui.notify(string.format('Checking out PR #%d...', pr_number))
+    gh.checkout_pr(pr_number)
+    ui.notify('PR checked out.')
+    load_pr_view()
+  end)
+end
+
 function M.list()
   return task.run(function()
     ui.notify('Loading PR list...')
@@ -231,7 +242,7 @@ function M.checkout()
   end)
 end
 
-local function format_pr_keymaps()
+local function format_pr_keymaps(is_checked_out)
   local keymaps = {
     { config.s.keymaps.pr.approve, 'approve PR' },
     { config.s.keymaps.pr.request_changes, 'request PR changes' },
@@ -239,6 +250,9 @@ local function format_pr_keymaps()
     { config.s.keymaps.pr.comment, 'comment on PR' },
     { config.s.keymaps.pr.diff, 'open PR diff' },
   }
+  if not is_checked_out then
+    table.insert(keymaps, { config.s.keymaps.pr.checkout, 'checkout PR' })
+  end
   local hints = {}
 
   for _, keymap in ipairs(keymaps) do
@@ -337,12 +351,15 @@ local function show_pr_info(pr_info)
   end
 
   local changed_files = gh.get_changed_files(pr_info.number)
+  local current_branch = utils.get_current_git_branch_name()
+  local is_checked_out = pr_info.headRefName ~= nil and pr_info.headRefName == current_branch
 
   ui.schedule()
   local pr_view = {
     string.format('#%d %s', pr_info.number, pr_info.title),
     string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
     string.format('URL: %s', pr_info.url),
+    string.format('Branch: %s%s', pr_info.headRefName or 'unknown', is_checked_out and ' (checked out)' or ''),
     string.format('Changed files: %d', pr_info.changedFiles),
   }
 
@@ -366,7 +383,7 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, reviews)
   end
 
-  local keymap_hints = format_pr_keymaps()
+  local keymap_hints = format_pr_keymaps(is_checked_out)
   if keymap_hints ~= '' then
     table.insert(pr_view, '')
     table.insert(pr_view, keymap_hints)
@@ -465,6 +482,15 @@ local function show_pr_info(pr_info)
     vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>', {
       noremap = true,
       silent = true,
+    })
+  end
+  if not is_checked_out and not utils.is_empty(config.s.keymaps.pr.checkout) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.checkout, '', {
+      noremap = true,
+      silent = true,
+      callback = function()
+        M.checkout_pr_in_view(pr_info.number)
+      end,
     })
   end
 
