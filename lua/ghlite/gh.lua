@@ -206,14 +206,14 @@ end
 --- @return PullRequest[]
 function M.get_pr_list()
   local resp, stderr = system.run_str(
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels'
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels'
   )
   config.log('get_pr_list resp', resp)
 
   local prefix = 'Unknown JSON field'
   if string.sub(stderr, 1, #prefix) == prefix then
     local resp2 = system.run_str(
-      'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels'
+      'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels'
     )
     config.log('get_pr_list resp', resp2)
     return parse_or_default(resp2, {})

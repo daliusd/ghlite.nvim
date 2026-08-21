@@ -5,6 +5,7 @@
 :GHLitePRDeleteComment	ghlite.txt	/*:GHLitePRDeleteComment*
 :GHLitePRDiff	ghlite.txt	/*:GHLitePRDiff*
 :GHLitePRDiffview	ghlite.txt	/*:GHLitePRDiffview*
+:GHLitePRList	ghlite.txt	/*:GHLitePRList*
 :GHLitePRLoadComments	ghlite.txt	/*:GHLitePRLoadComments*
 :GHLitePRMerge	ghlite.txt	/*:GHLitePRMerge*
 :GHLitePROpenComment	ghlite.txt	/*:GHLitePROpenComment*

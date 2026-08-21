@@ -9,6 +9,7 @@ M.setup = function(user_config)
   config.setup(user_config)
 
   vim.api.nvim_create_user_command('GHLitePRSelect', pr_commands.select, {})
+  vim.api.nvim_create_user_command('GHLitePRList', pr_commands.list, {})
   vim.api.nvim_create_user_command('GHLitePRCheckout', pr_commands.checkout, {})
   vim.api.nvim_create_user_command('GHLitePRView', pr_commands.load_pr_view, {})
   vim.api.nvim_create_user_command('GHLitePRApprove', pr_commands.approve_pr, {})

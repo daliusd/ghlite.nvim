@@ -23,6 +23,12 @@
 
 --- @class PullRequest
 --- @field number number
+--- @field title? string
+--- @field author? { login: string }
+--- @field labels? { name: string }[]
+--- @field createdAt? string
+--- @field isDraft? boolean
+--- @field updatedAt? string
 --- @field baseRefName string
 --- @field baseRefOid string
 --- @field headRefName string

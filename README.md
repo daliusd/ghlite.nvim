@@ -71,6 +71,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       })
     end,
     keys = {
+      -- { '<leader>us', ':GHLitePRList<cr>',       silent = true, desc = 'PR List' },
       { '<leader>us', ':GHLitePRSelect<cr>',        silent = true, desc = 'PR Select' },
       { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true, desc = 'PR Checkout' },
       { '<leader>uv', ':GHLitePRView<cr>',          silent = true, desc = 'PR View' },
@@ -154,6 +155,17 @@ only at diff, but at surrounding code as well.
   you can use `cr` in diff and pr views.
 
 ## Commands
+
+### GHLitePRList
+
+Opens a reusable buffer containing the same pull requests as `GHLitePRSelect`. Each PR is shown across several lines with its number, title, author, creation/update dates, draft/review status, and labels.
+
+Supported key bindings:
+
+- `cs` or `<CR>` opens the PR under the cursor
+- `co` checks out and opens the PR under the cursor
+- `r` refreshes the list
+- `q` closes the list
 
 ### GHLitePRSelect
 

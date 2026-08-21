@@ -10,6 +10,9 @@ local utils = require('ghlite.utils')
 
 local M = {}
 
+local pr_list_buffer
+local pr_list_by_buffer = {}
+
 --- @type async fun()
 local load_pr_view
 
@@ -56,6 +59,164 @@ function M.select()
       state.selected_PR = pr
       load_pr_view()
     end
+  end)
+end
+
+local function format_pr_list_item(pr)
+  local title = pr.title or ''
+  if #title > 80 then
+    title = title:sub(1, 77) .. '...'
+  end
+
+  local status = pr.reviewDecision and pr.reviewDecision:gsub('_', ' ') or 'REVIEW REQUIRED'
+  if status == '' then
+    status = 'REVIEW REQUIRED'
+  end
+  if pr.isDraft then
+    status = 'DRAFT • ' .. status
+  end
+
+  local author = pr.author and pr.author.login or 'unknown author'
+  local created_at = pr.createdAt and pr.createdAt:sub(1, 10) or 'unknown'
+  local updated_at = pr.updatedAt and pr.updatedAt:sub(1, 10) or 'unknown'
+
+  local labels = {}
+  for _, label in ipairs(pr.labels or {}) do
+    table.insert(labels, label.name)
+  end
+
+  local status_line = '  Status: ' .. status
+  if #labels > 0 then
+    status_line = status_line .. ' • Labels: ' .. table.concat(labels, ', ')
+  end
+
+  return {
+    string.format('#%d  %s', pr.number, title),
+    '  Author: ' .. author,
+    string.format('  Created: %s • Updated: %s', created_at, updated_at),
+    status_line,
+  }
+end
+
+local function get_pr_list_buffer()
+  if pr_list_buffer ~= nil and vim.api.nvim_buf_is_valid(pr_list_buffer) then
+    return pr_list_buffer
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(buf, 'GHLite PR List')
+  vim.bo[buf].bufhidden = 'hide'
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'ghlite-pr-list'
+
+  vim.api.nvim_buf_set_keymap(buf, 'n', 'cs', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      M.open_pr_under_cursor(buf)
+    end,
+  })
+  vim.api.nvim_buf_set_keymap(buf, 'n', '<CR>', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      M.open_pr_under_cursor(buf)
+    end,
+  })
+  vim.api.nvim_buf_set_keymap(buf, 'n', 'co', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      M.checkout_pr_under_cursor(buf)
+    end,
+  })
+  vim.api.nvim_buf_set_keymap(buf, 'n', 'r', '', {
+    noremap = true,
+    silent = true,
+    callback = M.list,
+  })
+  vim.api.nvim_buf_set_keymap(buf, 'n', 'q', '', {
+    noremap = true,
+    silent = true,
+    callback = function()
+      pr_list_by_buffer[buf] = nil
+      vim.api.nvim_buf_delete(buf, { force = true })
+      pr_list_buffer = nil
+    end,
+  })
+
+  pr_list_buffer = buf
+  return buf
+end
+
+--- Open the PR on the current list entry.
+--- @param buf integer
+function M.open_pr_under_cursor(buf)
+  local pr = pr_list_by_buffer[buf] and pr_list_by_buffer[buf][vim.api.nvim_win_get_cursor(0)[1]]
+  if pr == nil then
+    ui.notify('No PR on the current line.', vim.log.levels.WARN)
+    return
+  end
+
+  state.selected_PR = pr
+  M.load_pr_view()
+end
+
+--- Check out and open the PR on the current list entry.
+--- @param buf integer
+function M.checkout_pr_under_cursor(buf)
+  local pr = pr_list_by_buffer[buf] and pr_list_by_buffer[buf][vim.api.nvim_win_get_cursor(0)[1]]
+  if pr == nil then
+    ui.notify('No PR on the current line.', vim.log.levels.WARN)
+    return
+  end
+
+  return task.run(function()
+    state.selected_PR = pr
+    ui.notify(string.format('Checking out PR #%d...', pr.number))
+    gh.checkout_pr(pr.number)
+    ui.notify('PR checked out.')
+    load_pr_view()
+  end)
+end
+
+function M.list()
+  return task.run(function()
+    ui.notify('Loading PR list...')
+    local prs = gh.get_pr_list()
+
+    ui.schedule()
+    local buf = get_pr_list_buffer()
+    local list_win = vim.fn.bufwinid(buf)
+    if list_win ~= -1 then
+      vim.api.nvim_set_current_win(list_win)
+    else
+      if not utils.is_empty(config.s.view_split) then
+        vim.api.nvim_command(config.s.view_split)
+      end
+      vim.api.nvim_set_current_buf(buf)
+    end
+
+    local lines = { 'Pull requests', '', 'cs/<CR>: open   co: checkout and open   r: refresh   q: close', '' }
+    local prs_by_line = {}
+    if #prs == 0 then
+      table.insert(lines, 'No open pull requests found.')
+    else
+      for _, pr in ipairs(prs) do
+        for _, line in ipairs(format_pr_list_item(pr)) do
+          table.insert(lines, line)
+          prs_by_line[#lines] = pr
+        end
+        table.insert(lines, '')
+      end
+    end
+
+    pr_list_by_buffer[buf] = prs_by_line
+    vim.bo[buf].readonly = false
+    vim.bo[buf].modifiable = true
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.bo[buf].readonly = true
+    vim.bo[buf].modifiable = false
   end)
 end
 

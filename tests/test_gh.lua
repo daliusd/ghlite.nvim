@@ -106,8 +106,8 @@ T['get_pr_list falls back when gh does not know baseRefOid'] = function()
   restore()
 
   expect.equality(calls, {
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels',
-    'gh pr list --json number,title,author,createdAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels',
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
   })
   expect.equality(result, { { number = 5, headRefName = 'fallback' } })
 end

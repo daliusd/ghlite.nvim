@@ -7,6 +7,7 @@ T['setup registers all user commands'] = function()
 
   local expected_commands = {
     'GHLitePRSelect',
+    'GHLitePRList',
     'GHLitePRCheckout',
     'GHLitePRView',
     'GHLitePRApprove',
