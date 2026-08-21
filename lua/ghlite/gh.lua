@@ -128,7 +128,7 @@ function M.load_comments(pr_number)
   config.log('comments', comments)
 
   local function is_valid_comment(comment)
-    return comment.line ~= vim.NIL
+    return comment.line ~= vim.NIL or (comment.original_line ~= nil and comment.original_line ~= vim.NIL)
   end
 
   comments = utils.filter_array(comments, is_valid_comment)

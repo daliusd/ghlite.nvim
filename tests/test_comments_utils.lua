@@ -24,6 +24,7 @@ T['convert_comment maps GitHub API fields to internal comment'] = function()
     path = 'lua/example.lua',
     line = 7,
     start_line = 5,
+    outdated = false,
     user = 'reviewer',
     body = 'Looks good',
     updated_at = '2026-06-19T10:00:00Z',
@@ -31,6 +32,29 @@ T['convert_comment maps GitHub API fields to internal comment'] = function()
     commit_id = 'head-sha',
     original_commit_id = 'original-sha',
   })
+end
+
+T['convert_comment marks a comment outdated when position is null but original_position remains'] = function()
+  local comments_utils = require('ghlite.comments_utils')
+
+  local comment = comments_utils.convert_comment({
+    id = 12,
+    html_url = 'https://github.test/comment/12',
+    path = 'lua/example.lua',
+    line = vim.NIL,
+    start_line = vim.NIL,
+    original_line = 7,
+    original_start_line = vim.NIL,
+    position = vim.NIL,
+    original_position = 3,
+    user = { login = 'reviewer' },
+    body = 'Stale now',
+    updated_at = '2026-06-19T10:00:00Z',
+    diff_hunk = '@@ -1 +1 @@',
+  })
+
+  expect.equality(comment.outdated, true)
+  expect.equality(comment.original_line, 7)
 end
 
 T['prepare_content includes range, comments, and diff hunk'] = function()
@@ -133,6 +157,46 @@ T['group_comments groups replies under the root comment and keys by full path'] 
   expect.equality(#result['/repo/lua/example.lua'][1].comments, 2)
   -- the root comment's commit is what the commit view filters on
   expect.equality(result['/repo/lua/example.lua'][1].original_commit_id, 'original-sha')
+end
+
+T['group_comments falls back to original_line for outdated comments'] = function()
+  local async = require('async')
+  local utils = require('ghlite.utils')
+  local original_get_git_root = utils.get_git_root
+  utils.get_git_root = function()
+    return '/repo'
+  end
+
+  local comments_utils = require('ghlite.comments_utils')
+
+  local comments = {
+    {
+      id = 1,
+      html_url = 'https://github.test/comment/1',
+      path = 'lua/example.lua',
+      line = vim.NIL,
+      start_line = vim.NIL,
+      original_line = 10,
+      original_start_line = vim.NIL,
+      position = vim.NIL,
+      original_position = 4,
+      user = { login = 'alice' },
+      body = 'Root',
+      updated_at = 'now',
+      diff_hunk = '@@ -10 +10 @@',
+    },
+  }
+
+  local result = async
+    .run(function()
+      return comments_utils.group_comments(comments)
+    end)
+    :wait(1000)
+
+  utils.get_git_root = original_get_git_root
+
+  expect.equality(result['/repo/lua/example.lua'][1].line, 10)
+  expect.equality(result['/repo/lua/example.lua'][1].outdated, true)
 end
 
 return T

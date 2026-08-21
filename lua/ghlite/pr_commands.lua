@@ -313,7 +313,8 @@ local function format_review_comments_for_pr_view()
       for _, comment_group in pairs(comments_in_file) do
         if #comment_group.comments > 0 then
           local relative_filename = filename:match('^.*/(.*)$') or filename
-          table.insert(review_section, string.format('### %s:%d', relative_filename, comment_group.line))
+          local outdated_suffix = comment_group.outdated and ' [outdated]' or ''
+          table.insert(review_section, string.format('### %s:%d%s', relative_filename, comment_group.line, outdated_suffix))
           table.insert(review_section, '')
 
           for _, comment in pairs(comment_group.comments) do

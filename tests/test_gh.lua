@@ -303,6 +303,39 @@ T['load_comments filters comments without a line before grouping'] = function()
   expect.equality(result, { grouped = true })
 end
 
+T['load_comments keeps outdated comments that carry original_line but no line'] = function()
+  local calls = {}
+  local grouped_input
+  local comments_utils = require('ghlite.comments_utils')
+  local original_group_comments = comments_utils.group_comments
+  comments_utils.group_comments = function(comments)
+    grouped_input = comments
+    return { grouped = true }
+  end
+
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(calls, cmd)
+      if #calls == 1 then
+        return 'owner/repo\n', ''
+      end
+      return '[{"id":1,"line":10},{"id":2,"line":null,"original_line":7}]', ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.load_comments(12)
+    end)
+    :wait(1000)
+  restore()
+  comments_utils.group_comments = original_group_comments
+
+  expect.equality(#grouped_input, 2)
+  expect.equality(grouped_input[2].id, 2)
+  expect.equality(result, { grouped = true })
+end
+
 T['new_comment builds gh api request with start_line for ranges'] = function()
   local str_calls = {}
   local api_request
