@@ -231,6 +231,25 @@ function M.checkout()
   end)
 end
 
+local function format_pr_keymaps()
+  local keymaps = {
+    { config.s.keymaps.pr.approve, 'approve PR' },
+    { config.s.keymaps.pr.request_changes, 'request PR changes' },
+    { config.s.keymaps.pr.merge, 'merge PR' },
+    { config.s.keymaps.pr.comment, 'comment on PR' },
+    { config.s.keymaps.pr.diff, 'open PR diff' },
+  }
+  local hints = {}
+
+  for _, keymap in ipairs(keymaps) do
+    if not utils.is_empty(keymap[1]) then
+      table.insert(hints, keymap[1] .. ': ' .. keymap[2])
+    end
+  end
+
+  return table.concat(hints, '   ')
+end
+
 local function format_review_comments_for_pr_view()
   local review_section = {}
 
@@ -316,27 +335,16 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, reviews)
   end
 
+  local keymap_hints = format_pr_keymaps()
+  if keymap_hints ~= '' then
+    table.insert(pr_view, '')
+    table.insert(pr_view, keymap_hints)
+  end
+
   table.insert(pr_view, '')
   local body = string.gsub(pr_info.body, '\r', '')
   for _, line in ipairs(vim.split(body, '\n')) do
     table.insert(pr_view, line)
-  end
-
-  table.insert(pr_view, '')
-  if not utils.is_empty(config.s.keymaps.pr.approve) then
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.approve .. ' to approve PR')
-  end
-  if not utils.is_empty(config.s.keymaps.pr.request_changes) then
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.request_changes .. ' to request PR changes')
-  end
-  if not utils.is_empty(config.s.keymaps.pr.merge) then
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.merge .. ' to merge PR')
-  end
-  if not utils.is_empty(config.s.keymaps.pr.comment) then
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.comment .. ' to comment on PR')
-  end
-  if not utils.is_empty(config.s.keymaps.pr.diff) then
-    table.insert(pr_view, 'Press ' .. config.s.keymaps.pr.diff .. ' to open PR diff')
   end
 
   if #pr_info.comments > 0 then
@@ -435,15 +443,8 @@ local function show_pr_info(pr_info)
     local current_buf = vim.api.nvim_get_current_buf()
     local current_lines = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
 
-    -- Insert review comments before the keymap hints
+    -- Append review comments after the PR description and comments.
     local insert_position = #current_lines
-    for i = #current_lines, 1, -1 do
-      if current_lines[i]:match('^Press .* to ') then
-        insert_position = i - 1
-      else
-        break
-      end
-    end
 
     -- Add review comments section
     for i, line in ipairs(review_section) do
