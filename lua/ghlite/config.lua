@@ -32,6 +32,7 @@ M.s = {
       comment = 'ca',
       diff = 'cp',
       checkout = 'co',
+      refresh = 'r',
     },
   },
 }

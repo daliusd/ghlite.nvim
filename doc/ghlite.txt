@@ -68,6 +68,7 @@ NOTE: Default config is shown below. Skip settings if you are fine with defaults
             comment = 'ca',
             diff = 'cp',
             checkout = 'co',
+            refresh = 'r',
           },
         },
       })
@@ -196,6 +197,8 @@ Supported key bindings:
 * `cp` to open diff view
 
 * `co` to checkout the PR (only shown when the PR isn't already checked out)
+
+* `r` to refresh the PR view
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.

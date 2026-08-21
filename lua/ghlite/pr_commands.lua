@@ -249,6 +249,7 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.merge, 'merge PR' },
     { config.s.keymaps.pr.comment, 'comment on PR' },
     { config.s.keymaps.pr.diff, 'open PR diff' },
+    { config.s.keymaps.pr.refresh, 'refresh PR' },
   }
   if not is_checked_out then
     table.insert(keymaps, { config.s.keymaps.pr.checkout, 'checkout PR' })
@@ -491,6 +492,13 @@ local function show_pr_info(pr_info)
       callback = function()
         M.checkout_pr_in_view(pr_info.number)
       end,
+    })
+  end
+  if not utils.is_empty(config.s.keymaps.pr.refresh) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.refresh, '', {
+      noremap = true,
+      silent = true,
+      callback = M.load_pr_view,
     })
   end
 
