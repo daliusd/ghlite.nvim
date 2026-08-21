@@ -12,6 +12,7 @@ local M = {}
 
 local pr_list_buffer
 local pr_list_by_buffer = {}
+local pr_view_loading = {}
 
 --- @type async fun()
 local load_pr_view
@@ -354,6 +355,7 @@ local function show_pr_info(pr_info)
   local changed_files = gh.get_changed_files(pr_info.number)
   local current_branch = utils.get_current_git_branch_name()
   local is_checked_out = pr_info.headRefName ~= nil and pr_info.headRefName == current_branch
+  comments.load_comments_only(pr_info.number)
 
   ui.schedule()
   local pr_view = {
@@ -425,6 +427,14 @@ local function show_pr_info(pr_info)
       end
       table.insert(pr_view, '')
     end
+  end
+
+  local review_section = format_review_comments_for_pr_view()
+  if #review_section > 0 then
+    for _, line in ipairs(review_section) do
+      table.insert(pr_view, line)
+    end
+    table.insert(pr_view, '')
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -503,33 +513,6 @@ local function show_pr_info(pr_info)
   end
 
   ui.notify('PR view loaded.')
-
-  -- Load review comments and add them to the PR view
-  comments.load_comments_only(pr_info.number)
-  ui.schedule()
-  local review_section = format_review_comments_for_pr_view()
-  if #review_section > 0 then
-    local current_buf = vim.api.nvim_get_current_buf()
-    local current_lines = vim.api.nvim_buf_get_lines(current_buf, 0, -1, false)
-
-    -- Append review comments after the PR description and comments.
-    local insert_position = #current_lines
-
-    -- Add review comments section
-    for i, line in ipairs(review_section) do
-      table.insert(current_lines, insert_position + i, line)
-    end
-
-    -- Add an empty line before keymap hints
-    table.insert(current_lines, insert_position + #review_section + 1, '')
-
-    -- Temporarily make buffer modifiable to update it
-    vim.bo[current_buf].readonly = false
-    vim.bo[current_buf].modifiable = true
-    vim.api.nvim_buf_set_lines(current_buf, 0, -1, false, current_lines)
-    vim.bo[current_buf].readonly = true
-    vim.bo[current_buf].modifiable = false
-  end
 end
 
 --- @async
@@ -540,9 +523,23 @@ load_pr_view = function()
     return
   end
 
+  if pr_view_loading[selected_pr.number] then
+    ui.notify(string.format('PR #%d is already loading...', selected_pr.number), vim.log.levels.WARN)
+    return
+  end
+  pr_view_loading[selected_pr.number] = true
+
   ui.notify('PR view loading started...')
 
-  show_pr_info(gh.get_pr_info(selected_pr.number))
+  local ok, err = pcall(function()
+    show_pr_info(gh.get_pr_info(selected_pr.number))
+  end)
+
+  pr_view_loading[selected_pr.number] = nil
+
+  if not ok then
+    error(err, 0)
+  end
 end
 
 function M.load_pr_view()
