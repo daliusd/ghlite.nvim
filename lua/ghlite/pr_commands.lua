@@ -298,13 +298,13 @@ local function format_review_comments_for_pr_view()
             local comment_lines = vim.split(comment_body, '\n')
 
             if comment == comment_group.comments[1] then
-              table.insert(review_section, string.format('> **%s** at %s:', comment.user, comment.updated_at))
+              table.insert(review_section, string.format('✍️ %s at %s:', comment.user, comment.updated_at))
             else
-              table.insert(review_section, string.format('> **%s** replied at %s:', comment.user, comment.updated_at))
+              table.insert(review_section, string.format('✍️ %s replied at %s:', comment.user, comment.updated_at))
             end
 
             for _, line in ipairs(comment_lines) do
-              table.insert(review_section, '> ' .. line)
+              table.insert(review_section, line)
             end
             table.insert(review_section, '')
           end
@@ -326,7 +326,7 @@ local changed_file_statuses = {
 }
 
 local function format_changed_files(changed_files, total)
-  local lines = { '', 'Changed files:' }
+  local lines = { '', '## Changed files', '' }
 
   if changed_files == nil then
     table.insert(lines, '    Unable to load changed files.')
@@ -404,7 +404,7 @@ local function show_pr_info(pr_info)
 
   if #pr_info.comments > 0 then
     table.insert(pr_view, '')
-    table.insert(pr_view, 'Comments:')
+    table.insert(pr_view, '## Comments')
     table.insert(pr_view, '')
 
     for _, comment in pairs(pr_info.comments) do
