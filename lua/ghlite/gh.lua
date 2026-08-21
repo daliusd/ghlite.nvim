@@ -65,6 +65,24 @@ end
 
 --- @async
 --- @param pr_number number
+--- @return { filename: string, status: string }[]|nil
+function M.get_changed_files(pr_number)
+  local repo = get_repo()
+  if repo == nil then
+    return nil
+  end
+
+  local result = system.run_str(f('gh api repos/%s/pulls/%d/files?per_page=100', repo, pr_number))
+  if result == nil then
+    return nil
+  end
+
+  config.log('get_changed_files resp', result)
+  return parse_or_default(result, nil)
+end
+
+--- @async
+--- @param pr_number number
 --- @return table<string, GroupedComment[]>
 function M.load_comments(pr_number)
   local repo = get_repo()

@@ -86,6 +86,32 @@ T['get_current_pr returns nil for invalid JSON response'] = function()
   expect.equality(result, nil)
 end
 
+T['get_changed_files fetches at most 100 files from the pull request API'] = function()
+  local calls = {}
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(calls, cmd)
+      if #calls == 1 then
+        return 'owner/repo\n', ''
+      end
+      return '[{"filename":"lua/example.lua","status":"modified"}]', ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_changed_files(42)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(calls, {
+    'gh repo view --json nameWithOwner -q .nameWithOwner',
+    'gh api repos/owner/repo/pulls/42/files?per_page=100',
+  })
+  expect.equality(result, { { filename = 'lua/example.lua', status = 'modified' } })
+end
+
 T['get_pr_list falls back when gh does not know baseRefOid'] = function()
   local calls = {}
   local gh, restore = reload_gh_with_system({

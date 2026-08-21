@@ -300,12 +300,43 @@ local function format_review_comments_for_pr_view()
   return review_section
 end
 
+local changed_file_statuses = {
+  added = 'A',
+  changed = 'M',
+  copied = 'C',
+  modified = 'M',
+  removed = 'D',
+  renamed = 'R',
+}
+
+local function format_changed_files(changed_files, total)
+  local lines = { '', 'Changed files:' }
+
+  if changed_files == nil then
+    table.insert(lines, '    Unable to load changed files.')
+    return lines
+  end
+
+  for _, file in ipairs(changed_files) do
+    table.insert(lines, string.format('    %s %s', changed_file_statuses[file.status] or '?', file.filename))
+  end
+
+  local remaining = total - #changed_files
+  if remaining > 0 then
+    table.insert(lines, string.format('    ... and %d more file%s.', remaining, remaining == 1 and '' or 's'))
+  end
+
+  return lines
+end
+
 --- @async
 local function show_pr_info(pr_info)
   if pr_info == nil then
     ui.notify('PR view load failed', vim.log.levels.ERROR)
     return
   end
+
+  local changed_files = gh.get_changed_files(pr_info.number)
 
   ui.schedule()
   local pr_view = {
@@ -344,6 +375,10 @@ local function show_pr_info(pr_info)
   table.insert(pr_view, '')
   local body = string.gsub(pr_info.body, '\r', '')
   for _, line in ipairs(vim.split(body, '\n')) do
+    table.insert(pr_view, line)
+  end
+
+  for _, line in ipairs(format_changed_files(changed_files, pr_info.changedFiles)) do
     table.insert(pr_view, line)
   end
 

@@ -21,6 +21,10 @@
 --- @field [1] string filename
 --- @field [2] number line
 
+--- @class ChangedFile
+--- @field filename string
+--- @field status string
+
 --- @class PullRequest
 --- @field number number
 --- @field title? string
