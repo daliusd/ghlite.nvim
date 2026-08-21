@@ -8,6 +8,8 @@
 --- @field body string
 --- @field updated_at string
 --- @field diff_hunk string
+--- @field commit_id? string
+--- @field original_commit_id? string
 
 --- @class GroupedComment
 --- @field id number
@@ -16,6 +18,8 @@
 --- @field url string
 --- @field content string
 --- @field comments Comment[]
+--- @field commit_id? string
+--- @field original_commit_id? string
 
 --- @class FileNameAndLinePair
 --- @field [1] string filename
@@ -24,6 +28,32 @@
 --- @class ChangedFile
 --- @field filename string
 --- @field status string
+
+--- @class Commit
+--- @field oid string
+--- @field messageHeadline string
+--- @field messageBody string
+--- @field authoredDate string
+--- @field committedDate string
+--- @field authors { login?: string, name?: string, email?: string }[]
+
+--- @class CommitFile
+--- @field filename string
+--- @field previous_filename? string
+--- @field status string
+--- @field additions number
+--- @field deletions number
+--- @field patch? string
+
+--- @class CommitDetails
+--- @field sha string
+--- @field html_url string
+--- @field commit { message: string, author: table, committer: table, verification?: table }
+--- @field author? { login: string }
+--- @field committer? { login: string }
+--- @field parents { sha: string }[]
+--- @field stats { additions: number, deletions: number, total: number }
+--- @field files CommitFile[]
 
 --- @class PullRequest
 --- @field number number

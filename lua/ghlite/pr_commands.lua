@@ -1,4 +1,6 @@
 local comments = require('ghlite.comments')
+local commit_commands = require('ghlite.commit_commands')
+local commit_utils = require('ghlite.commit_utils')
 local config = require('ghlite.config')
 local gh = require('ghlite.gh')
 local pr_utils = require('ghlite.pr_utils')
@@ -13,6 +15,9 @@ local M = {}
 local pr_list_buffer
 local pr_list_by_buffer = {}
 local pr_view_loading = {}
+--- Per PR view buffer: `commits` in PR order plus the line -> index map used by
+--- the open-commit keymaps.
+local pr_view_commits_by_buffer = {}
 
 --- @type async fun()
 local load_pr_view
@@ -181,6 +186,23 @@ function M.checkout_pr_under_cursor(buf)
   end)
 end
 
+--- Open the commit view for the commit on the current PR view line.
+--- @param buf integer
+function M.open_commit_under_cursor(buf)
+  local view = pr_view_commits_by_buffer[buf]
+  local index = view and view.index_by_line[vim.api.nvim_win_get_cursor(0)[1]]
+  if index == nil then
+    ui.notify('No commit on the current line.', vim.log.levels.WARN)
+    return
+  end
+
+  commit_commands.open_commit(view.commits[index].oid, {
+    pr_number = view.pr_number,
+    commits = view.commits,
+    index = index,
+  })
+end
+
 --- Check out the PR currently shown in the PR view and reload it.
 --- @param pr_number number
 function M.checkout_pr_in_view(pr_number)
@@ -250,6 +272,7 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.merge, 'merge PR' },
     { config.s.keymaps.pr.comment, 'comment on PR' },
     { config.s.keymaps.pr.diff, 'open PR diff' },
+    { config.s.keymaps.pr.open_commit, 'open commit under cursor' },
     { config.s.keymaps.pr.refresh, 'refresh PR' },
   }
   if not is_checked_out then
@@ -398,6 +421,17 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, line)
   end
 
+  local commits_offset = #pr_view
+  local commit_lines, commit_index_by_line = commit_utils.format_commits(pr_info.commits)
+  for _, line in ipairs(commit_lines) do
+    table.insert(pr_view, line)
+  end
+
+  local commit_index_by_buffer_line = {}
+  for line, index in pairs(commit_index_by_line) do
+    commit_index_by_buffer_line[commits_offset + line] = index
+  end
+
   for _, line in ipairs(format_changed_files(changed_files, pr_info.changedFiles)) do
     table.insert(pr_view, line)
   end
@@ -444,6 +478,12 @@ local function show_pr_info(pr_info)
   vim.bo[buf].filetype = 'markdown'
 
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, pr_view)
+
+  pr_view_commits_by_buffer[buf] = {
+    pr_number = pr_info.number,
+    commits = pr_info.commits or {},
+    index_by_line = commit_index_by_buffer_line,
+  }
 
   if config.s.view_split then
     vim.api.nvim_command(config.s.view_split)
@@ -511,6 +551,21 @@ local function show_pr_info(pr_info)
       callback = M.load_pr_view,
     })
   end
+  local function open_commit_under_cursor()
+    M.open_commit_under_cursor(buf)
+  end
+  if not utils.is_empty(config.s.keymaps.pr.open_commit) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.open_commit, '', {
+      noremap = true,
+      silent = true,
+      callback = open_commit_under_cursor,
+    })
+  end
+  vim.api.nvim_buf_set_keymap(buf, 'n', '<CR>', '', {
+    noremap = true,
+    silent = true,
+    callback = open_commit_under_cursor,
+  })
 
   ui.notify('PR view loaded.')
 end

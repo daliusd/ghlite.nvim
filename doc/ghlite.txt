@@ -69,6 +69,19 @@ NOTE: Default config is shown below. Skip settings if you are fine with defaults
             diff = 'cp',
             checkout = 'co',
             refresh = 'r',
+            open_commit = 'cs', -- open commit view for the commit under the cursor (<CR> works too)
+          },
+          commit = {
+            open_file = 'gf',
+            open_file_split = 'o',
+            open_file_vsplit = 'O',
+            diff = 'cp',
+            next_commit = ']c',
+            prev_commit = '[c',
+            yank_sha = 'y',
+            open_in_browser = 'gx',
+            refresh = 'r',
+            close = 'q',
           },
         },
       })
@@ -198,7 +211,13 @@ Supported key bindings:
 
 * `co` to checkout the PR (only shown when the PR isn't already checked out)
 
+* `cs` or `<CR>` to open the commit view for the commit under the cursor (see
+  |:GHLiteCommitView|)
+
 * `r` to refresh the PR view
+
+The view lists the PR commits under a `## Commits` heading, followed by the
+changed files, PR comments and review comments.
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.
@@ -319,6 +338,38 @@ This command deletes selected comment.
 
 Opens comment under cursor in browser using `open_command` command (default
 `open`).
+
+==============================================================================
+:GHLiteCommitView                   *:GHLiteCommitView*
+
+Shows a single commit: `:GHLiteCommitView <sha>`. Usually you don't type it -
+press `cs` or `<CR>` on a commit in the PR view instead, which also enables
+commit-to-commit navigation.
+
+The view shows the SHA, author (and committer, when it differs), parent
+commits, the commit message, signature status, CI check runs, the changed files
+with their `+`/`-` counts, any review comments left on that commit, and the
+commit diff.
+
+Supported key bindings:
+
+* `gf`, `o`, `O` to open the file under the cursor (in the current window, a
+  split or a vertical split) at the line the diff points at
+
+* `cp` to open the commit in `diffview.nvim`/`codediff.nvim`
+
+* `]c` and `[c` to move to the next/previous commit of the PR (only when opened
+  from the PR view)
+
+* `y` to yank the full SHA
+
+* `gx` to open the commit on GitHub using `open_command`
+
+* `r` to refresh, `q` to close
+
+The commit is fetched from the GitHub API, so it works for PRs that are not
+checked out. Opening a file, however, opens the file in your working tree - if
+the PR isn't checked out you may land in unrelated code.
 
 ------------------------------------------------------------------------------
 vim:tw=78:ts=8:ft=help:norl:

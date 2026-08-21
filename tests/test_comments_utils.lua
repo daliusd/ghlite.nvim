@@ -14,6 +14,8 @@ T['convert_comment maps GitHub API fields to internal comment'] = function()
     body = 'Looks good',
     updated_at = '2026-06-19T10:00:00Z',
     diff_hunk = '@@ -1 +1 @@',
+    commit_id = 'head-sha',
+    original_commit_id = 'original-sha',
   })
 
   expect.equality(comment, {
@@ -26,6 +28,8 @@ T['convert_comment maps GitHub API fields to internal comment'] = function()
     body = 'Looks good',
     updated_at = '2026-06-19T10:00:00Z',
     diff_hunk = '@@ -1 +1 @@',
+    commit_id = 'head-sha',
+    original_commit_id = 'original-sha',
   })
 end
 
@@ -98,6 +102,7 @@ T['group_comments groups replies under the root comment and keys by full path'] 
       body = 'Root',
       updated_at = 'now',
       diff_hunk = '@@ -10 +10 @@',
+      original_commit_id = 'original-sha',
     },
     {
       id = 2,
@@ -126,6 +131,8 @@ T['group_comments groups replies under the root comment and keys by full path'] 
   expect.equality(result['/repo/lua/example.lua'][1].id, 1)
   expect.equality(result['/repo/lua/example.lua'][1].url, 'https://github.test/comment/2')
   expect.equality(#result['/repo/lua/example.lua'][1].comments, 2)
+  -- the root comment's commit is what the commit view filters on
+  expect.equality(result['/repo/lua/example.lua'][1].original_commit_id, 'original-sha')
 end
 
 return T

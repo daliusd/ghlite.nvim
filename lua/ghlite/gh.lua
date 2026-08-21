@@ -42,7 +42,7 @@ end
 function M.get_pr_info(pr_number)
   local result = system.run_str(
     f(
-      'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName',
+      'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits',
       pr_number
     )
   )
@@ -79,6 +79,42 @@ function M.get_changed_files(pr_number)
 
   config.log('get_changed_files resp', result)
   return parse_or_default(result, nil)
+end
+
+--- @async
+--- @param sha string
+--- @return CommitDetails|nil
+function M.get_commit(sha)
+  local repo = get_repo()
+  if repo == nil then
+    return nil
+  end
+
+  -- NOTE: run (not run_str) so a missing commit does not notify raw gh stderr
+  local result = system.run({ 'gh', 'api', f('repos/%s/commits/%s', repo, sha) })
+  config.log('get_commit resp', result)
+
+  return parse_or_default(result, nil)
+end
+
+--- @async
+--- @param sha string
+--- @return { name: string, status: string, conclusion: string }[]|nil
+function M.get_commit_checks(sha)
+  local repo = get_repo()
+  if repo == nil then
+    return nil
+  end
+
+  local result = system.run({ 'gh', 'api', f('repos/%s/commits/%s/check-runs', repo, sha) })
+  config.log('get_commit_checks resp', result)
+
+  local resp = parse_or_default(result, nil)
+  if resp == nil then
+    return nil
+  end
+
+  return resp.check_runs
 end
 
 --- @async

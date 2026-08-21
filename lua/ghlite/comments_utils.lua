@@ -15,6 +15,8 @@ function M.convert_comment(comment)
     body = comment.body,
     updated_at = comment.updated_at,
     diff_hunk = comment.diff_hunk,
+    commit_id = comment.commit_id,
+    original_commit_id = comment.original_commit_id,
   }
 end
 
@@ -82,6 +84,8 @@ function M.group_comments(gh_comments, opts)
       url = comments[#comments].url,
       content = M.prepare_content(comments, opts),
       comments = comments,
+      commit_id = comments[1].commit_id,
+      original_commit_id = comments[1].original_commit_id,
     }
 
     local full_path = git_root .. '/' .. comments[1].path

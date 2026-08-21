@@ -112,6 +112,117 @@ T['get_changed_files fetches at most 100 files from the pull request API'] = fun
   expect.equality(result, { { filename = 'lua/example.lua', status = 'modified' } })
 end
 
+T['get_pr_info requests the commit list alongside the PR fields'] = function()
+  local calls = {}
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(calls, cmd)
+      return '{"number":42,"commits":[{"oid":"abc"}]}', ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_pr_info(42)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(calls, {
+    'gh pr view 42 --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits',
+  })
+  expect.equality(result.commits, { { oid = 'abc' } })
+end
+
+T['get_commit fetches a single commit from the commits API'] = function()
+  local str_calls = {}
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(str_calls, cmd)
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"sha":"abc123","files":[{"filename":"lua/example.lua"}]}'
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_commit('abc123')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(str_calls, { 'gh repo view --json nameWithOwner -q .nameWithOwner' })
+  expect.equality(api_request, { 'gh', 'api', 'repos/owner/repo/commits/abc123' })
+  expect.equality(result.sha, 'abc123')
+end
+
+T['get_commit returns nil when the commit is gone'] = function()
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function()
+      return ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_commit('deadbeef')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(result, nil)
+end
+
+T['get_commit_checks unwraps the check runs'] = function()
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"total_count":1,"check_runs":[{"name":"build","status":"completed","conclusion":"success"}]}'
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_commit_checks('abc123')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(api_request, { 'gh', 'api', 'repos/owner/repo/commits/abc123/check-runs' })
+  expect.equality(result, { { name = 'build', status = 'completed', conclusion = 'success' } })
+end
+
+T['get_commit_checks returns nil when the API call fails'] = function()
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function()
+      return ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_commit_checks('abc123')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(result, nil)
+end
+
 T['get_pr_list falls back when gh does not know baseRefOid'] = function()
   local calls = {}
   local gh, restore = reload_gh_with_system({
