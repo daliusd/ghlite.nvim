@@ -250,7 +250,12 @@ pr_commands = {
 
 The command is run through the shell (so pipes, quoting and redirects work)
 from the repository root, and its output opens in a new read-only buffer using
-`view_split`. Because the plugin passes no PR context, the command is expected
+`view_split`. AI reviews can take a while, so a spinner with the elapsed time
+is notified while the command runs, and Neovim is not blocked meanwhile. The
+notification asks to be updated in place, so with a notifier plugin installed
+(nvim-notify, snacks.nvim, fidget.nvim) you get a single updating notification;
+the built-in `vim.notify` shows one message per second instead. Because the
+plugin passes no PR context, the command is expected
 to work it out itself, e.g. via `gh pr diff` or `git diff`, which rely on the
 PR branch being checked out. For that reason the PR must be checked out before
 a command runs: if it isn't, you are asked to check it out first, and the

@@ -283,9 +283,17 @@ local function run_pr_command(pr_number, entry)
       return
     end
 
-    ui.notify(string.format('Running "%s"...', entry.name))
     local git_root = utils.get_git_root()
-    local stdout, stderr = system.run_shell(entry.cmd, { cwd = git_root })
+
+    -- Commands can run for minutes, so keep a spinner up until it finishes.
+    local stop_progress = ui.progress(string.format('Running "%s"', entry.name))
+    local ok, stdout, stderr = pcall(system.run_shell, entry.cmd, { cwd = git_root })
+
+    if not ok then
+      stop_progress(string.format('"%s" failed.', entry.name), vim.log.levels.ERROR)
+      error(stdout, 0)
+    end
+    stop_progress(string.format('"%s" finished.', entry.name))
 
     ui.schedule()
     local output = stdout
@@ -309,8 +317,6 @@ local function run_pr_command(pr_number, entry)
 
     vim.bo[buf].readonly = true
     vim.bo[buf].modifiable = false
-
-    ui.notify(string.format('"%s" finished.', entry.name))
   end)
 end
 
