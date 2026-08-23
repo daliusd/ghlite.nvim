@@ -47,6 +47,14 @@ NOTE: Default config is shown below. Skip settings if you are fine with defaults
           nonapproved = '--auto --squash',
         },
         html_comments_command = { 'lynx', '-stdin', '-dump' }, -- command to render HTML comments in PR view
+        -- custom shell commands runnable from the PR view, output opens in a new buffer
+        pr_commands = {
+          {
+            name = 'AI Review', -- shown in the PR view keymap hints
+            cmd = 'pi -p "review this PR"', -- run in the repository root
+            key = 'cr', -- set to '' to disable the keymap
+          },
+        },
         -- override default keymaps with the ones you prefer
         -- set keymap to false or '' to disable it
         keymaps = {
@@ -216,8 +224,43 @@ Supported key bindings:
 
 * `r` to refresh the PR view
 
+* `cr` to run the AI review command (see `pr_commands` below)
+
 The view lists the PR commits under a `## Commits` heading, followed by the
 changed files, PR comments and review comments.
+
+Custom commands ~
+                                                        *ghlite-pr-commands*
+`pr_commands` lets you run arbitrary shell commands against the PR from the PR
+view. Each entry has a `name`, a `cmd` and a `key`, and every configured entry
+gets its own key binding and is listed in the PR view key binding hints.
+
+By default a single AI review entry is configured, bound to `cr`: >lua
+
+    pr_commands = {
+      { name = 'AI Review', cmd = 'pi -p "review this PR"', key = 'cr' },
+    }
+<
+Use it to plug in whatever tool you prefer, for example: >lua
+
+    pr_commands = {
+      { name = 'AI Review', cmd = 'claude -p "review this PR"', key = 'cr' },
+      { name = 'Tests',     cmd = 'make test',                  key = 'ct' },
+    }
+<
+The command is run through the shell (so pipes, quoting and redirects work)
+from the repository root, and its output opens in a new read-only buffer using
+`view_split`. AI reviews can take a while, so a spinner with the elapsed time
+is notified while the command runs, and Neovim is not blocked meanwhile. The
+notification asks to be updated in place, so with a notifier plugin installed
+(nvim-notify, snacks.nvim, fidget.nvim) you get a single updating notification;
+the built-in `vim.notify` shows one message per second instead. Because the
+plugin passes no PR context, the command is expected
+to work it out itself, e.g. via `gh pr diff` or `git diff`, which rely on the
+PR branch being checked out. For that reason the PR must be checked out before
+a command runs: if it isn't, you are asked to check it out first, and the
+command is not run if you decline. Set an entry's `key` to `''` to keep the
+command configured without binding a key.
 
 Note: You can use default vim shortcuts as well, like `gx` to open links in
 this view.
