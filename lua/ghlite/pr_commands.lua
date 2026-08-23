@@ -265,6 +265,55 @@ function M.checkout()
   end)
 end
 
+--- Run a user-configured command against the PR view's PR and open its
+--- output in a new buffer.
+--- @param pr_number integer
+--- @param entry table `name`, `cmd`
+local function run_pr_command(pr_number, entry)
+  return task.run(function()
+    -- The command runs in the repo and relies on the PR branch being checked
+    -- out, so make the reason explicit instead of silently doing nothing.
+    local checked_out_pr, declined = pr_utils.get_checked_out_pr()
+    if checked_out_pr == nil then
+      if declined == nil then
+        ui.notify('No PR to work with.', vim.log.levels.WARN)
+      else
+        ui.notify(string.format('"%s" not run: PR must be checked out.', entry.name), vim.log.levels.WARN)
+      end
+      return
+    end
+
+    ui.notify(string.format('Running "%s"...', entry.name))
+    local git_root = utils.get_git_root()
+    local stdout, stderr = system.run_shell(entry.cmd, { cwd = git_root })
+
+    ui.schedule()
+    local output = stdout
+    if utils.is_empty(output) and not utils.is_empty(stderr) then
+      output = stderr
+    end
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(
+      buf,
+      string.format('PR #%d: %s (%s)', pr_number, entry.name, os.date('%Y-%m-%d %H:%M:%S'))
+    )
+    vim.bo[buf].buftype = 'nofile'
+    vim.bo[buf].filetype = 'markdown'
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(output, '\n'))
+
+    if config.s.view_split then
+      vim.api.nvim_command(config.s.view_split)
+    end
+    vim.api.nvim_set_current_buf(buf)
+
+    vim.bo[buf].readonly = true
+    vim.bo[buf].modifiable = false
+
+    ui.notify(string.format('"%s" finished.', entry.name))
+  end)
+end
+
 local function format_pr_keymaps(is_checked_out)
   local keymaps = {
     { config.s.keymaps.pr.approve, 'approve PR' },
@@ -277,6 +326,9 @@ local function format_pr_keymaps(is_checked_out)
   }
   if not is_checked_out then
     table.insert(keymaps, { config.s.keymaps.pr.checkout, 'checkout PR' })
+  end
+  for _, entry in ipairs(config.s.pr_commands or {}) do
+    table.insert(keymaps, { entry.key, entry.name })
   end
   local hints = {}
 
@@ -314,7 +366,10 @@ local function format_review_comments_for_pr_view()
         if #comment_group.comments > 0 then
           local relative_filename = filename:match('^.*/(.*)$') or filename
           local outdated_suffix = comment_group.outdated and ' [outdated]' or ''
-          table.insert(review_section, string.format('### %s:%d%s', relative_filename, comment_group.line, outdated_suffix))
+          table.insert(
+            review_section,
+            string.format('### %s:%d%s', relative_filename, comment_group.line, outdated_suffix)
+          )
           table.insert(review_section, '')
 
           for _, comment in pairs(comment_group.comments) do
@@ -552,6 +607,18 @@ local function show_pr_info(pr_info)
       callback = M.load_pr_view,
     })
   end
+  for _, entry in ipairs(config.s.pr_commands or {}) do
+    if not utils.is_empty(entry.key) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', entry.key, '', {
+        noremap = true,
+        silent = true,
+        callback = function()
+          run_pr_command(pr_info.number, entry)
+        end,
+      })
+    end
+  end
+
   local function open_commit_under_cursor()
     M.open_commit_under_cursor(buf)
   end

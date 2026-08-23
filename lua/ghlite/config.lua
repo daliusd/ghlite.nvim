@@ -13,6 +13,13 @@ M.s = {
     nonapproved = '--auto --squash',
   },
   html_comments_command = { 'lynx', '-stdin', '-dump' },
+  pr_commands = {
+    {
+      name = 'AI Review',
+      cmd = 'pi -p "review this PR"',
+      key = 'cr',
+    },
+  },
   keymaps = {
     diff = {
       open_file = 'gf',

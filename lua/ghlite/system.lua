@@ -38,4 +38,22 @@ function M.run_sync(cmd, opts)
   return vim.system(cmd, opts):wait()
 end
 
+--- Run an arbitrary command string through the shell asynchronously.
+--- Unlike `run_str`, this preserves quoting and supports pipes/redirects, so
+--- it is used for user-configured commands rather than fixed git/gh calls.
+--- @async
+--- @param cmd string
+--- @param opts table|nil e.g. `{ cwd = string }`
+--- @return string stdout
+--- @return string stderr
+function M.run_shell(cmd, opts)
+  local sys_opts = vim.tbl_extend('force', { text = true }, opts or {})
+  local result = async.await(3, vim.system, { 'sh', '-c', cmd }, sys_opts)
+  if #result.stderr > 0 then
+    config.log('system.run_shell error', result.stderr)
+  end
+
+  return result.stdout, result.stderr
+end
+
 return M
