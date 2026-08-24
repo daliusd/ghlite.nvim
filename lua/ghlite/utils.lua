@@ -34,6 +34,40 @@ function M.get_git_merge_base(baseCommitId, headCommitId)
 end
 
 --- @async
+--- Ensure the commits needed to compare a pull request exist locally.
+--- Fetching is skipped when both commits are already present.
+--- @param pr PullRequest
+--- @return boolean
+function M.ensure_pr_commits(pr)
+  local function commit_exists(commit)
+    if commit == nil or commit == '' then
+      return false
+    end
+    local result = system.run_result({ 'git', 'cat-file', '-e', commit .. '^{commit}' })
+    return result.code == 0
+  end
+
+  -- Without baseRefOid (older gh versions), fetch the base branch as well;
+  -- the local branch may be stale even when all currently referenced objects exist.
+  local base_exists = pr.baseRefOid ~= nil and commit_exists(pr.baseRefOid)
+  local head_exists = commit_exists(pr.headRefOid)
+
+  if base_exists and head_exists then
+    return true
+  end
+
+  system.run_result({
+    'git',
+    'fetch',
+    'origin',
+    pr.baseRefName,
+    'pull/' .. tostring(pr.number) .. '/head',
+  })
+
+  return (pr.baseRefOid == nil or commit_exists(pr.baseRefOid)) and commit_exists(pr.headRefOid)
+end
+
+--- @async
 --- @return string
 function M.get_current_git_branch_name()
   local result = system.run_str('git branch --show-current')

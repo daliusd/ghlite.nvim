@@ -31,6 +31,14 @@ function M.run(cmd)
   return result.stdout
 end
 
+--- Run a command given as an argument list without displaying stderr.
+--- @async
+--- @param cmd string[]
+--- @return table
+function M.run_result(cmd)
+  return async.await(3, vim.system, cmd, { text = true })
+end
+
 --- Run a command synchronously and return its result.
 --- @param cmd string[]
 --- @param opts table|nil

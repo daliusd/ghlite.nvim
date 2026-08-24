@@ -178,10 +178,18 @@ function M.load_pr_diffview()
     comments.load_comments_only(selected_pr.number)
     ui.notify('Comments loaded.')
 
-    local mergeBaseOid = utils.get_git_merge_base(
-      selected_pr.baseRefOid and selected_pr.baseRefOid or selected_pr.baseRefName,
-      selected_pr.headRefOid
-    )
+    if not utils.ensure_pr_commits(selected_pr) then
+      ui.notify('Unable to fetch the commits needed for this PR diff.', vim.log.levels.ERROR)
+      return
+    end
+
+    local base_ref = selected_pr.baseRefOid or ('origin/' .. selected_pr.baseRefName)
+    local mergeBaseOid = utils.get_git_merge_base(base_ref, selected_pr.headRefOid)
+    if mergeBaseOid == nil or mergeBaseOid == '' then
+      ui.notify('Unable to determine the merge base for this PR.', vim.log.levels.ERROR)
+      return
+    end
+
     local is_checked_out = pr_utils.is_pr_checked_out()
 
     ui.schedule()
