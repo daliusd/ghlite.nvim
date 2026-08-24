@@ -95,8 +95,8 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       })
     end,
     keys = {
-      -- { '<leader>us', ':GHLitePRList<cr>',       silent = true, desc = 'PR List' },
-      { '<leader>us', ':GHLitePRSelect<cr>',        silent = true, desc = 'PR Select' },
+      { '<leader>us', ':GHLitePRList<cr>',          silent = true, desc = 'PR List' },
+      -- { '<leader>us', ':GHLitePRSelect<cr>',        silent = true, desc = 'PR Select' },
       { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true, desc = 'PR Checkout' },
       { '<leader>uv', ':GHLitePRView<cr>',          silent = true, desc = 'PR View' },
       { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true, desc = 'PR Load Comments' },
