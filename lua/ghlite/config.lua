@@ -38,6 +38,7 @@ M.s = {
       merge = 'cM',
       comment = 'ca',
       diff = 'cp',
+      diffview = 'cl',
       checkout = 'co',
       refresh = 'r',
       open_commit = 'cs',

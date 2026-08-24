@@ -327,6 +327,7 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.merge, 'merge PR' },
     { config.s.keymaps.pr.comment, 'comment on PR' },
     { config.s.keymaps.pr.diff, 'open PR diff' },
+    { config.s.keymaps.pr.diffview, 'open PR in diff tool' },
     { config.s.keymaps.pr.open_commit, 'open commit under cursor' },
     { config.s.keymaps.pr.refresh, 'refresh PR' },
   }
@@ -593,6 +594,12 @@ local function show_pr_info(pr_info)
   end
   if not utils.is_empty(config.s.keymaps.pr.diff) then
     vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>', {
+      noremap = true,
+      silent = true,
+    })
+  end
+  if not utils.is_empty(config.s.keymaps.pr.diffview) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diffview, ':GHLitePRDiffview<cr>', {
       noremap = true,
       silent = true,
     })

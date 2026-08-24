@@ -74,6 +74,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             merge = 'cM',
             comment = 'ca',
             diff = 'cp',
+            diffview = 'cl',
             checkout = 'co',
             refresh = 'r',
             open_commit = 'cs', -- open commit view for the commit under the cursor (<CR> works too)
@@ -212,6 +213,8 @@ Supported key bindings:
 * `ca` to write top level PR comment
 
 * `cp` to open diff view
+
+* `cl` to open the PR in the configured diff tool (Diffview.nvim or codediff.nvim)
 
 * `co` to checkout the PR (only shown when the PR isn't already checked out)
 
