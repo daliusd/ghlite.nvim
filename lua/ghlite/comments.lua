@@ -207,6 +207,29 @@ local function get_current_filename_and_line()
   end
 end
 
+--- Send a reply to a review-comment thread.
+--- @async
+--- @param pr_number number
+--- @param input string
+--- @param grouped_comment GroupedComment
+--- @param on_success fun()|nil
+M.reply_to_comment = function(pr_number, input, grouped_comment, on_success)
+  ui.notify('Sending comment...')
+  local resp = gh.reply_to_comment(pr_number, input, grouped_comment.id)
+  if resp.errors == nil then
+    ui.notify('Comment sent.')
+    local new_comment = comments_utils.convert_comment(resp)
+    table.insert(grouped_comment.comments, new_comment)
+    grouped_comment.content =
+      comments_utils.prepare_content(grouped_comment.comments, { comment_hunk = config.s.comment_hunk })
+    if type(on_success) == 'function' then
+      on_success()
+    end
+  else
+    ui.notify('Failed to send comment.', vim.log.levels.WARN)
+  end
+end
+
 M.comment_on_line = function()
   return task.run(function()
     local selected_pr = pr_utils.get_selected_pr()
@@ -251,23 +274,8 @@ M.comment_on_line = function()
         task.run(function()
           --- @async
           --- @param grouped_comment GroupedComment
-          local function reply(grouped_comment)
-            ui.notify('Sending reply...')
-            local resp = gh.reply_to_comment(state.selected_PR.number, input, grouped_comment.id)
-            if resp['errors'] == nil then
-              ui.notify('Reply sent.')
-              local new_comment = comments_utils.convert_comment(resp)
-              table.insert(grouped_comment.comments, new_comment)
-              grouped_comment.content =
-                comments_utils.prepare_content(grouped_comment.comments, { comment_hunk = config.s.comment_hunk })
-              M.load_comments_on_current_buffer()
-            else
-              ui.notify('Failed to reply to comment.', vim.log.levels.WARN)
-            end
-          end
-
           if #conversations == 1 then
-            reply(conversations[1])
+            M.reply_to_comment(state.selected_PR.number, input, conversations[1], M.load_comments_on_current_buffer)
           elseif #conversations > 1 then
             local comment = ui.select(conversations, {
               prompt = 'Select comment to reply to:',
@@ -276,7 +284,7 @@ M.comment_on_line = function()
               end,
             })
             if comment ~= nil then
-              reply(comment)
+              M.reply_to_comment(state.selected_PR.number, input, comment, M.load_comments_on_current_buffer)
             end
           else
             if current_filename:sub(1, #git_root) == git_root then

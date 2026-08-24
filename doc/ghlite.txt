@@ -214,7 +214,7 @@ Supported key bindings:
 
 * `cM` to merge PR (see `GHLitePRMerge` for details)
 
-* `ca` to write top level PR comment
+* `ca` to write a top-level PR comment, or quote a PR/review comment when the cursor is on its body
 
 * `cp` to open diff view
 
@@ -230,7 +230,9 @@ Supported key bindings:
 * `cr` to run the AI review command (see `pr_commands` below)
 
 The view lists the PR commits under a `## Commits` heading, followed by the
-changed files, PR comments and review comments.
+changed files, PR comments and review comments. When the cursor is on a review
+PR or review comment body, `ca` preloads it as a quote in a new comment;
+elsewhere it writes a top-level PR comment.
 
 Custom commands ~
                                                         *ghlite-pr-commands*

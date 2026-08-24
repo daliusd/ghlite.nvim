@@ -18,6 +18,8 @@ local pr_view_loading = {}
 --- Per PR view buffer: `commits` in PR order plus the line -> index map used by
 --- the open-commit keymaps.
 local pr_view_commits_by_buffer = {}
+--- Per PR view buffer: PR/review comment body lines -> comment and optional review thread.
+local pr_view_comments_by_buffer = {}
 
 --- @type async fun()
 local load_pr_view
@@ -350,6 +352,7 @@ end
 
 local function format_review_comments_for_pr_view()
   local review_section = {}
+  local review_comments_by_line = {}
 
   if state.comments_list and next(state.comments_list) then
     table.insert(review_section, '')
@@ -391,6 +394,7 @@ local function format_review_comments_for_pr_view()
 
             for _, line in ipairs(comment_lines) do
               table.insert(review_section, line)
+              review_comments_by_line[#review_section] = { group = comment_group, comment = comment }
             end
             table.insert(review_section, '')
           end
@@ -399,7 +403,7 @@ local function format_review_comments_for_pr_view()
     end
   end
 
-  return review_section
+  return review_section, review_comments_by_line
 end
 
 local changed_file_statuses = {
@@ -499,6 +503,7 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, line)
   end
 
+  local pr_comments_by_line = {}
   if #pr_info.comments > 0 then
     table.insert(pr_view, '')
     table.insert(pr_view, '## Comments')
@@ -521,12 +526,14 @@ local function show_pr_info(pr_info)
 
       for _, line in ipairs(vim.split(comment_body, '\n')) do
         table.insert(pr_view, line)
+        pr_comments_by_line[#pr_view] = { comment = comment }
       end
       table.insert(pr_view, '')
     end
   end
 
-  local review_section = format_review_comments_for_pr_view()
+  local review_section, review_comments_by_line = format_review_comments_for_pr_view()
+  local review_section_offset = #pr_view
   if #review_section > 0 then
     for _, line in ipairs(review_section) do
       table.insert(pr_view, line)
@@ -547,6 +554,10 @@ local function show_pr_info(pr_info)
     commits = pr_info.commits or {},
     index_by_line = commit_index_by_buffer_line,
   }
+  pr_view_comments_by_buffer[buf] = pr_comments_by_line
+  for line, review_comment in pairs(review_comments_by_line) do
+    pr_view_comments_by_buffer[buf][review_section_offset + line] = review_comment
+  end
 
   if config.s.view_split then
     vim.api.nvim_command(config.s.view_split)
@@ -588,7 +599,13 @@ local function show_pr_info(pr_info)
       noremap = true,
       silent = true,
       callback = function()
-        M.comment_on_pr(M.load_pr_view)
+        local line = vim.api.nvim_win_get_cursor(0)[1]
+        local comment = pr_view_comments_by_buffer[buf][line]
+        if comment ~= nil then
+          M.comment_on_pr(M.load_pr_view, comment.group, comment.comment)
+        else
+          M.comment_on_pr(M.load_pr_view)
+        end
       end,
     })
   end
@@ -682,7 +699,7 @@ function M.load_pr_view()
   return task.run(load_pr_view)
 end
 
-M.comment_on_pr = function(on_success)
+M.comment_on_pr = function(on_success, comment_group, comment)
   return task.run(function()
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
@@ -691,18 +708,29 @@ M.comment_on_pr = function(on_success)
     end
 
     ui.schedule()
+    local is_reply = comment_group ~= nil
     local prompt = '<!-- Type your PR comment and press ' .. config.s.keymaps.comment.send_comment .. ' to comment: -->'
+    local content = { prompt, '' }
+    if comment ~= nil then
+      content = vim.list_extend({ prompt }, vim.tbl_map(function(line)
+        return '> ' .. line
+      end, vim.split(comment.body, '\n')))
+    end
 
     utils.get_comment(
       'PR Comment: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
       config.s.comment_split,
       prompt,
-      { prompt, '' },
+      content,
       config.s.keymaps.comment.send_comment,
       function(input)
         task.run(function()
-          ui.notify('Sending comment...')
+          if is_reply then
+            comments.reply_to_comment(selected_pr.number, input, comment_group, on_success)
+            return
+          end
 
+          ui.notify('Sending comment...')
           local resp = gh.new_pr_comment(state.selected_PR, input)
           if resp ~= nil then
             ui.notify('Comment sent.')
