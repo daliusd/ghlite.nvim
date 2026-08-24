@@ -21,6 +21,8 @@ T['setup registers all user commands'] = function()
     'GHLitePRUpdateComment',
     'GHLitePROpenComment',
     'GHLitePRDeleteComment',
+    'GHLitePRResolveComment',
+    'GHLitePRUnresolveComment',
     'GHLiteCommitView',
   }
 

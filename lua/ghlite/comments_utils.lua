@@ -40,6 +40,7 @@ local function format_comment(comment)
 end
 
 --- @param comments Comment[]
+--- @param opts? { comment_hunk?: boolean, resolved?: boolean }
 function M.prepare_content(comments, opts)
   opts = opts or {}
   local comment_hunk = opts.comment_hunk
@@ -47,12 +48,12 @@ function M.prepare_content(comments, opts)
     comment_hunk = true
   end
 
-  local content = ''
+  local content = opts.resolved == nil and '' or (opts.resolved and '✅ Resolved\n\n' or '○ Unresolved\n\n')
   local first = comments[1]
   local effective_line = first and (is_null(first.line) and first.original_line or first.line)
   local effective_start_line = first and (is_null(first.start_line) and first.original_start_line or first.start_line)
   if #comments > 0 and not is_null(effective_start_line) and effective_start_line ~= effective_line then
-    content = string.format('📓 Comment on lines %d to %d\n\n', effective_start_line, effective_line)
+    content = content .. string.format('📓 Comment on lines %d to %d\n\n', effective_start_line, effective_line)
   end
 
   for _, comment in pairs(comments) do
@@ -68,7 +69,7 @@ end
 
 --- @async
 --- @return table<string, GroupedComment[]>
-function M.group_comments(gh_comments, opts)
+function M.group_comments(gh_comments, opts, thread_statuses)
   local git_root = utils.get_git_root()
 
   --- @type table<number, Comment[]>
@@ -99,7 +100,17 @@ function M.group_comments(gh_comments, opts)
       comments = comments,
       commit_id = comments[1].commit_id,
       original_commit_id = comments[1].original_commit_id,
+      resolved = false,
     }
+    local thread = thread_statuses and thread_statuses[grouped_comments.id]
+    if thread then
+      grouped_comments.thread_id = thread.thread_id
+      grouped_comments.resolved = thread.resolved
+    end
+    grouped_comments.content = M.prepare_content(comments, {
+      comment_hunk = opts and opts.comment_hunk,
+      resolved = grouped_comments.resolved,
+    })
 
     local full_path = git_root .. '/' .. comments[1].path
     if result[full_path] == nil then

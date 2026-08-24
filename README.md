@@ -66,7 +66,9 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             request_changes = 'cR',
           },
           comment = {
-            send_comment = 'c<CR>' -- this one cannot be disabled
+            send_comment = 'c<CR>', -- this one cannot be disabled
+            resolve = 'cS',
+            unresolve = 'cU',
           },
           pr = {
             approve = 'cA',
@@ -105,8 +107,10 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true, desc = 'PR Add comment' },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    mode = 'x',    silent = true,             desc = 'PR Add comment' },
       { '<leader>uc', ':GHLitePRUpdateComment<cr>', silent = true, desc = 'PR Update comment' },
-      { '<leader>ud', ':GHLitePRDeleteComment<cr>', silent = true, desc = 'PR Delete comment' },
-      { '<leader>ug', ':GHLitePROpenComment<cr>',   silent = true, desc = 'PR Open comment' },
+      { '<leader>ud', ':GHLitePRDeleteComment<cr>',    silent = true, desc = 'PR Delete comment' },
+      { '<leader>ur', ':GHLitePRResolveComment<cr>',   silent = true, desc = 'PR Resolve comment thread' },
+      { '<leader>uR', ':GHLitePRUnresolveComment<cr>', silent = true, desc = 'PR Unresolve comment thread' },
+      { '<leader>ug', ':GHLitePROpenComment<cr>',      silent = true, desc = 'PR Open comment' },
     }
   }
 ```
@@ -364,6 +368,13 @@ This command updates selected comment.
 ### GHLitePRDeleteComment
 
 This command deletes selected comment.
+
+### GHLitePRResolveComment / GHLitePRUnresolveComment
+
+Resolve or reopen the review-comment thread under the cursor. If several threads
+are attached to the line, prompts for one. In the built-in diff and PR views,
+these are bound to `keymaps.comment.resolve` (`cS`) and
+`keymaps.comment.unresolve` (`cU`).
 
 ### GHLitePROpenComment
 

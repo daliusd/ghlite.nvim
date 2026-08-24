@@ -10,6 +10,13 @@ local utils = require('ghlite.utils')
 
 local M = {}
 
+local function refresh_content(conversation)
+  conversation.content = comments_utils.prepare_content(conversation.comments, {
+    comment_hunk = config.s.comment_hunk,
+    resolved = conversation.resolved,
+  })
+end
+
 local function load_comments_to_quickfix_list()
   local qf_entries = {}
 
@@ -220,8 +227,7 @@ M.reply_to_comment = function(pr_number, input, grouped_comment, on_success)
     ui.notify('Comment sent.')
     local new_comment = comments_utils.convert_comment(resp)
     table.insert(grouped_comment.comments, new_comment)
-    grouped_comment.content =
-      comments_utils.prepare_content(grouped_comment.comments, { comment_hunk = config.s.comment_hunk })
+    refresh_content(grouped_comment)
     if type(on_success) == 'function' then
       on_success()
     end
@@ -305,7 +311,11 @@ M.comment_on_line = function()
                   start_line = current_start_line,
                   url = resp.html_url,
                   comments = { new_comment },
-                  content = comments_utils.prepare_content({ new_comment }, { comment_hunk = config.s.comment_hunk }),
+                  resolved = false,
+                  content = comments_utils.prepare_content({ new_comment }, {
+                    comment_hunk = config.s.comment_hunk,
+                    resolved = false,
+                  }),
                 }
                 if state.comments_list[current_filename] == nil then
                   state.comments_list[current_filename] = { new_comment_group }
@@ -324,6 +334,68 @@ M.comment_on_line = function()
       end
     )
   end)
+end
+
+--- @param conversation GroupedComment
+--- @param resolved boolean
+--- @param on_success? fun()
+M.set_conversation_resolved = function(conversation, resolved, on_success)
+  return task.run(function()
+    if conversation.thread_id == nil then
+      ui.notify('This comment thread cannot be resolved.', vim.log.levels.WARN)
+      return
+    end
+    ui.notify((resolved and 'Resolving' or 'Unresolving') .. ' comment thread...')
+    local thread = gh.set_review_thread_resolved(conversation.thread_id, resolved)
+    if thread == nil then
+      ui.notify('Failed to update comment thread.', vim.log.levels.ERROR)
+      return
+    end
+    conversation.resolved = thread.isResolved
+    refresh_content(conversation)
+    M.load_comments_on_current_buffer()
+    ui.notify('Comment thread ' .. (conversation.resolved and 'resolved.' or 'unresolved.'))
+    if on_success then
+      on_success()
+    end
+  end)
+end
+
+local function set_current_conversation_resolved(resolved)
+  return task.run(function()
+    local filename, _, line, reason = get_current_filename_and_line()
+    if filename == nil then
+      if reason ~= 'silent' then
+        ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
+      end
+      return
+    end
+    local conversations = M.get_conversations(filename, line)
+    if #conversations == 0 then
+      ui.notify('No comment threads found on this line.', vim.log.levels.WARN)
+      return
+    end
+    local conversation = conversations[1]
+    if #conversations > 1 then
+      conversation = ui.select(conversations, {
+        prompt = 'Select comment thread to ' .. (resolved and 'resolve:' or 'unresolve:'),
+        format_item = function(item)
+          return vim.split(item.content, '\n')[1]
+        end,
+      })
+    end
+    if conversation then
+      M.set_conversation_resolved(conversation, resolved)
+    end
+  end)
+end
+
+M.resolve_comment = function()
+  return set_current_conversation_resolved(true)
+end
+
+M.unresolve_comment = function()
+  return set_current_conversation_resolved(false)
 end
 
 M.open_comment = function()
@@ -396,8 +468,7 @@ local function edit_comment_body(comment, conversation)
         if resp['errors'] == nil then
           ui.notify('Comment updated.')
           comment.body = resp.body
-          conversation.content =
-            comments_utils.prepare_content(conversation.comments, { comment_hunk = config.s.comment_hunk })
+          refresh_content(conversation)
 
           M.load_comments_on_current_buffer()
         else
@@ -468,7 +539,7 @@ M.delete_comment = function()
 
       local convo = conversations_list[idx]
       convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
-      convo.content = comments_utils.prepare_content(convo.comments, { comment_hunk = config.s.comment_hunk })
+      refresh_content(convo)
 
       ui.notify('Comment deleted.')
       M.load_comments_on_current_buffer()

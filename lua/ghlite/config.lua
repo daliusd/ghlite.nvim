@@ -31,6 +31,8 @@ M.s = {
     },
     comment = {
       send_comment = 'c<CR>',
+      resolve = 'cS',
+      unresolve = 'cU',
     },
     pr = {
       approve = 'cA',

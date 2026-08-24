@@ -135,11 +135,103 @@ function M.load_comments(pr_number)
   config.log('Valid comments count', #comments)
   config.log('comments', comments)
 
-  local grouped_comments = comments_utils.group_comments(comments, { comment_hunk = config.s.comment_hunk })
+  local thread_statuses = M.get_review_thread_statuses(pr_number, repo)
+  local grouped_comments =
+    comments_utils.group_comments(comments, { comment_hunk = config.s.comment_hunk }, thread_statuses)
   config.log('Valid comments groups count:', #grouped_comments)
   config.log('grouped comments', grouped_comments)
 
   return grouped_comments
+end
+
+--- Return resolution metadata keyed by the root REST review-comment ID.
+--- GitHub exposes review-thread resolution only through GraphQL.
+--- @async
+function M.get_review_thread_statuses(pr_number, repo)
+  repo = repo or get_repo()
+  if repo == nil then
+    return {}
+  end
+  local owner, name = repo:match('^([^/]+)/(.+)$')
+  if owner == nil then
+    return {}
+  end
+
+  local query = [[query($owner: String!, $name: String!, $number: Int!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        reviewThreads(first: 100, after: $after) {
+          nodes { id isResolved comments(first: 1) { nodes { databaseId } } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+  }]]
+  local statuses, after = {}, nil
+  repeat
+    local request = {
+      'gh',
+      'api',
+      'graphql',
+      '-f',
+      'query=' .. query,
+      '-f',
+      'owner=' .. owner,
+      '-f',
+      'name=' .. name,
+      '-F',
+      'number=' .. pr_number,
+    }
+    if after ~= nil then
+      table.insert(request, '-f')
+      table.insert(request, 'after=' .. after)
+    end
+    local response = parse_or_default(system.run(request), {})
+    local threads = type(response.data) == 'table'
+      and type(response.data.repository) == 'table'
+      and type(response.data.repository.pullRequest) == 'table'
+      and response.data.repository.pullRequest.reviewThreads
+    if type(threads) ~= 'table' then
+      config.log('get_review_thread_statuses failed', response)
+      break
+    end
+    for _, thread in ipairs(threads.nodes or {}) do
+      local root = thread.comments and thread.comments.nodes and thread.comments.nodes[1]
+      if root and root.databaseId then
+        statuses[root.databaseId] = { thread_id = thread.id, resolved = thread.isResolved }
+      end
+    end
+    after = threads.pageInfo and threads.pageInfo.hasNextPage and threads.pageInfo.endCursor or nil
+  until after == nil
+
+  return statuses
+end
+
+--- @async
+function M.set_review_thread_resolved(thread_id, resolved)
+  local mutation_name = resolved and 'resolveReviewThread' or 'unresolveReviewThread'
+  local query = string.format(
+    'mutation($threadId: ID!) { %s(input: {threadId: $threadId}) { thread { id isResolved } } }',
+    mutation_name
+  )
+  local response = parse_or_default(
+    system.run({
+      'gh',
+      'api',
+      'graphql',
+      '-f',
+      'query=' .. query,
+      '-f',
+      'threadId=' .. thread_id,
+    }),
+    {}
+  )
+  local result = type(response.data) == 'table' and response.data[mutation_name]
+  if result and result.thread then
+    return result.thread
+  end
+  config.log('set_review_thread_resolved failed', response)
+  return nil
 end
 
 --- @async

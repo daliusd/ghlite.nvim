@@ -24,6 +24,8 @@
 --- @field comments Comment[]
 --- @field commit_id? string
 --- @field original_commit_id? string
+--- @field thread_id? string
+--- @field resolved boolean
 
 --- @class FileNameAndLinePair
 --- @field [1] string filename

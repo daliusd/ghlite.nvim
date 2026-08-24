@@ -143,6 +143,20 @@ function M.load_pr_diff()
         { noremap = true, silent = true, callback = pr_commands.request_changes_pr }
       )
     end
+    if not utils.is_empty(config.s.keymaps.comment.resolve) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.resolve, '', {
+        noremap = true,
+        silent = true,
+        callback = comments.resolve_comment,
+      })
+    end
+    if not utils.is_empty(config.s.keymaps.comment.unresolve) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.unresolve, '', {
+        noremap = true,
+        silent = true,
+        callback = comments.unresolve_comment,
+      })
+    end
 
     ui.notify('PR diff loaded.')
     ui.notify('Comments on diff load started...')

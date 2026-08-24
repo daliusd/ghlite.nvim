@@ -88,6 +88,23 @@ T['prepare_content includes range, comments, and diff hunk'] = function()
   )
 end
 
+T['prepare_content keeps resolution status for range comments'] = function()
+  local comments_utils = require('ghlite.comments_utils')
+
+  local content = comments_utils.prepare_content({
+    {
+      user = 'alice',
+      updated_at = 'today',
+      body = 'Range comment',
+      start_line = 3,
+      line = 5,
+      diff_hunk = '@@ -3,3 +3,3 @@',
+    },
+  }, { resolved = true, comment_hunk = false })
+
+  expect.equality(content, '✅ Resolved\n\n📓 Comment on lines 3 to 5\n\n✍️ alice at today:\nRange comment\n\n')
+end
+
 T['prepare_content can omit diff hunk'] = function()
   local comments_utils = require('ghlite.comments_utils')
 

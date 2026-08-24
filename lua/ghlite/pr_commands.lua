@@ -328,6 +328,8 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.request_changes, 'request PR changes' },
     { config.s.keymaps.pr.merge, 'merge PR' },
     { config.s.keymaps.pr.comment, 'comment on PR' },
+    { config.s.keymaps.comment.resolve, 'resolve comment thread' },
+    { config.s.keymaps.comment.unresolve, 'unresolve comment thread' },
     { config.s.keymaps.pr.diff, 'open PR diff' },
     { config.s.keymaps.pr.diffview, 'open PR in diff tool' },
     { config.s.keymaps.pr.open_commit, 'open commit under cursor' },
@@ -376,9 +378,10 @@ local function format_review_comments_for_pr_view()
         if #comment_group.comments > 0 then
           local relative_filename = filename:match('^.*/(.*)$') or filename
           local outdated_suffix = comment_group.outdated and ' [outdated]' or ''
+          local resolution_suffix = comment_group.resolved and ' [resolved]' or ' [unresolved]'
           table.insert(
             review_section,
-            string.format('### %s:%d%s', relative_filename, comment_group.line, outdated_suffix)
+            string.format('### %s:%d%s%s', relative_filename, comment_group.line, outdated_suffix, resolution_suffix)
           )
           table.insert(review_section, '')
 
@@ -609,6 +612,33 @@ local function show_pr_info(pr_info)
       end,
     })
   end
+  local function set_thread_resolution(resolved)
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local entry = pr_view_comments_by_buffer[buf][line]
+    if entry == nil or entry.group == nil then
+      ui.notify('No review comment thread found on this line.', vim.log.levels.WARN)
+      return
+    end
+    comments.set_conversation_resolved(entry.group, resolved, M.load_pr_view)
+  end
+  if not utils.is_empty(config.s.keymaps.comment.resolve) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.resolve, '', {
+      noremap = true,
+      silent = true,
+      callback = function()
+        set_thread_resolution(true)
+      end,
+    })
+  end
+  if not utils.is_empty(config.s.keymaps.comment.unresolve) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.unresolve, '', {
+      noremap = true,
+      silent = true,
+      callback = function()
+        set_thread_resolution(false)
+      end,
+    })
+  end
   if not utils.is_empty(config.s.keymaps.pr.diff) then
     vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>', {
       noremap = true,
@@ -712,9 +742,12 @@ M.comment_on_pr = function(on_success, comment_group, comment)
     local prompt = '<!-- Type your PR comment and press ' .. config.s.keymaps.comment.send_comment .. ' to comment: -->'
     local content = { prompt, '' }
     if comment ~= nil then
-      content = vim.list_extend({ prompt }, vim.tbl_map(function(line)
-        return '> ' .. line
-      end, vim.split(comment.body, '\n')))
+      content = vim.list_extend(
+        { prompt },
+        vim.tbl_map(function(line)
+          return '> ' .. line
+        end, vim.split(comment.body, '\n'))
+      )
     end
 
     utils.get_comment(
