@@ -355,21 +355,18 @@ end
 --- @async
 --- @return PullRequest[]
 function M.get_pr_list()
-  local resp, stderr = system.run_str(
-    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels'
-  )
+  local fields =
+    'number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels,statusCheckRollup'
+  local resp, stderr = system.run_str('gh pr list --json ' .. fields)
   config.log('get_pr_list resp', resp)
 
-  local prefix = 'Unknown JSON field'
-  if string.sub(stderr, 1, #prefix) == prefix then
-    local resp2 = system.run_str(
-      'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels'
-    )
-    config.log('get_pr_list resp', resp2)
-    return parse_or_default(resp2, {})
-  else
-    return parse_or_default(resp, {})
+  if string.sub(stderr or '', 1, #'Unknown JSON field') == 'Unknown JSON field' then
+    fields = fields:gsub(',baseRefOid', ''):gsub(',statusCheckRollup', '')
+    resp = system.run_str('gh pr list --json ' .. fields)
+    config.log('get_pr_list resp', resp)
   end
+
+  return parse_or_default(resp, {})
 end
 
 --- @async

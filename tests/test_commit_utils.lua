@@ -164,6 +164,22 @@ T['format_checks summarizes runs and lists only the problems'] = function()
   )
 end
 
+T['format_pr_check_summary summarizes check runs and legacy statuses'] = function()
+  local commit_utils = require('ghlite.commit_utils')
+
+  expect.equality(commit_utils.format_pr_check_summary(nil), nil)
+  expect.equality(commit_utils.format_pr_check_summary({}), nil)
+  expect.equality(
+    commit_utils.format_pr_check_summary({
+      { name = 'build', status = 'COMPLETED', conclusion = 'SUCCESS' },
+      { name = 'lint', status = 'COMPLETED', conclusion = 'SKIPPED' },
+      { name = 'test', status = 'COMPLETED', conclusion = 'FAILURE' },
+      { context = 'deploy', state = 'PENDING' },
+    }),
+    'Checks: 2 passed, 1 failed, 1 pending'
+  )
+end
+
 T['format_pr_checks renders and sorts check runs and legacy statuses'] = function()
   local commit_utils = require('ghlite.commit_utils')
 

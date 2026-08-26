@@ -98,6 +98,11 @@ local function format_pr_list_item(pr)
     status_line = status_line .. ' • Labels: ' .. table.concat(labels, ', ')
   end
 
+  local checks = commit_utils.format_pr_check_summary(pr.statusCheckRollup)
+  if checks ~= nil then
+    status_line = status_line .. ' • ' .. checks
+  end
+
   return {
     string.format('#%d  %s', pr.number, title),
     '  Author: ' .. author,

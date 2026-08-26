@@ -186,7 +186,7 @@ only at diff, but at surrounding code as well.
 
 ### GHLitePRList
 
-Opens a reusable buffer containing the same pull requests as `GHLitePRSelect`. Each PR is shown across several lines with its number, title, author, creation/update dates, draft/review status, and labels.
+Opens a reusable buffer containing the same pull requests as `GHLitePRSelect`. Each PR is shown across several lines with its number, title, author, creation/update dates, draft/review status, labels, and a summary of its GitHub status checks.
 
 Supported key bindings:
 

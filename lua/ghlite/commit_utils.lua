@@ -115,6 +115,55 @@ function M.format_checks(check_runs)
   return lines
 end
 
+--- Summarize the heterogeneous `statusCheckRollup` returned by `gh pr view`.
+--- @param checks StatusCheckRollup[]|nil
+--- @return string|nil
+function M.format_pr_check_summary(checks)
+  if checks == nil or #checks == 0 then
+    return nil
+  end
+
+  local passed, failed, pending = 0, 0, 0
+  for _, check in ipairs(checks) do
+    local outcome
+    if check.context ~= nil then
+      local state = (check.state or 'unknown'):lower()
+      if state == 'success' then
+        outcome = 'passed'
+      elseif state == 'pending' or state == 'expected' then
+        outcome = 'pending'
+      else
+        outcome = 'failed'
+      end
+    elseif (check.status or ''):lower() ~= 'completed' then
+      outcome = 'pending'
+    else
+      local conclusion = (check.conclusion or 'unknown'):lower()
+      outcome = (conclusion == 'success' or conclusion == 'neutral' or conclusion == 'skipped') and 'passed' or 'failed'
+    end
+
+    if outcome == 'passed' then
+      passed = passed + 1
+    elseif outcome == 'failed' then
+      failed = failed + 1
+    else
+      pending = pending + 1
+    end
+  end
+
+  local summary = {}
+  if passed > 0 then
+    table.insert(summary, string.format('%d passed', passed))
+  end
+  if failed > 0 then
+    table.insert(summary, string.format('%d failed', failed))
+  end
+  if pending > 0 then
+    table.insert(summary, string.format('%d pending', pending))
+  end
+  return 'Checks: ' .. table.concat(summary, ', ')
+end
+
 --- Render the heterogeneous `statusCheckRollup` returned by `gh pr view`.
 --- @param checks StatusCheckRollup[]|nil
 --- @return string[]

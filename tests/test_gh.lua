@@ -271,7 +271,33 @@ T['get_pr_list falls back when gh does not know baseRefOid'] = function()
   restore()
 
   expect.equality(calls, {
-    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels',
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels,statusCheckRollup',
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
+  })
+  expect.equality(result, { { number = 5, headRefName = 'fallback' } })
+end
+
+T['get_pr_list falls back when gh does not know statusCheckRollup'] = function()
+  local calls = {}
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(calls, cmd)
+      if #calls == 1 then
+        return '', 'Unknown JSON field: "statusCheckRollup"'
+      end
+      return '[{"number":5,"headRefName":"fallback"}]', ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_pr_list()
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(calls, {
+    'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,baseRefOid,labels,statusCheckRollup',
     'gh pr list --json number,title,author,createdAt,updatedAt,isDraft,reviewDecision,headRefName,headRefOid,baseRefName,labels',
   })
   expect.equality(result, { { number = 5, headRefName = 'fallback' } })
