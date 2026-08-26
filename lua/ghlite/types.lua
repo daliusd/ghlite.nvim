@@ -74,3 +74,16 @@
 --- @field headRefName string
 --- @field headRefOid string
 --- @field reviewDecision string
+--- @field statusCheckRollup? StatusCheckRollup[]
+
+--- @class StatusCheckRollup
+--- @field __typename? 'CheckRun'|'StatusContext'
+--- @field name? string CheckRun name
+--- @field context? string legacy commit-status context name
+--- @field status? string CheckRun status, e.g. queued, in_progress, completed
+--- @field conclusion? string CheckRun conclusion when completed
+--- @field state? string legacy commit-status state, e.g. SUCCESS, FAILURE, PENDING
+--- @field workflowName? string
+--- @field description? string
+--- @field detailsUrl? string
+--- @field targetUrl? string

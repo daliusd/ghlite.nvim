@@ -233,10 +233,11 @@ Supported key bindings:
 
 * `cr` to run the AI review command (see `pr_commands` below)
 
-The view lists the PR commits under a `## Commits` heading, followed by the
-changed files, PR comments and review comments. When the cursor is on a review
-PR or review comment body, `ca` preloads it as a quote in a new comment;
-elsewhere it writes a top-level PR comment.
+The view lists the PR's GitHub status checks under a `## Checks` heading, then
+its commits under `## Commits`, followed by changed files, PR comments and
+review comments. When the cursor is on a review PR or review comment body,
+`ca` preloads it as a quote in a new comment; elsewhere it writes a top-level
+PR comment.
 
 Custom commands ~
                                                         *ghlite-pr-commands*

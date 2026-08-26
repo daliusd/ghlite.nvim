@@ -73,6 +73,10 @@ T['ca on a PR view review-comment body replies to its thread'] = function()
           reviews = {},
           body = '',
           commits = {},
+          statusCheckRollup = {
+            { name = 'build', status = 'COMPLETED', conclusion = 'SUCCESS' },
+            { context = 'deploy', state = 'PENDING' },
+          },
           comments = {},
         }
       end,
@@ -110,6 +114,10 @@ T['ca on a PR view review-comment body replies to its thread'] = function()
       end
     end
     expect.no_equality(body_line, nil)
+    local view_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    expect.equality(vim.tbl_contains(view_lines, '## Checks'), true)
+    expect.equality(vim.tbl_contains(view_lines, '    ✓ build (SUCCESS)'), true)
+    expect.equality(vim.tbl_contains(view_lines, '    ⏳ deploy (PENDING)'), true)
     vim.api.nvim_win_set_cursor(0, { body_line, 0 })
 
     local keymap = vim.fn.maparg('ca', 'n', false, true)

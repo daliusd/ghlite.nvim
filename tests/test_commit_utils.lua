@@ -164,6 +164,30 @@ T['format_checks summarizes runs and lists only the problems'] = function()
   )
 end
 
+T['format_pr_checks renders and sorts check runs and legacy statuses'] = function()
+  local commit_utils = require('ghlite.commit_utils')
+
+  expect.equality(commit_utils.format_pr_checks(nil), {})
+  expect.equality(commit_utils.format_pr_checks({}), {})
+  expect.equality(
+    commit_utils.format_pr_checks({
+      { name = 'test', status = 'COMPLETED', conclusion = 'FAILURE', workflowName = 'CI' },
+      { context = 'coverage', state = 'SUCCESS', description = 'Codecov' },
+      { name = 'deploy', status = 'in_progress' },
+      { context = 'required-review', state = 'PENDING' },
+    }),
+    {
+      '',
+      '## Checks',
+      '',
+      '    ✓ coverage — Codecov (SUCCESS)',
+      '    ⏳ deploy (in_progress)',
+      '    ⏳ required-review (PENDING)',
+      '    ✗ test — CI (FAILURE)',
+    }
+  )
+end
+
 T['format_verification stays quiet for unsigned commits'] = function()
   local commit_utils = require('ghlite.commit_utils')
 

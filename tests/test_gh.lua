@@ -112,12 +112,13 @@ T['get_changed_files fetches at most 100 files from the pull request API'] = fun
   expect.equality(result, { { filename = 'lua/example.lua', status = 'modified' } })
 end
 
-T['get_pr_info requests the commit list alongside the PR fields'] = function()
+T['get_pr_info requests commits and the status check rollup'] = function()
   local calls = {}
   local gh, restore = reload_gh_with_system({
     run_str = function(cmd)
       table.insert(calls, cmd)
-      return '{"number":42,"commits":[{"oid":"abc"}]}', ''
+      return '{"number":42,"commits":[{"oid":"abc"}],"statusCheckRollup":[{"name":"build","status":"completed","conclusion":"success"}]}',
+        ''
     end,
   })
 
@@ -129,9 +130,36 @@ T['get_pr_info requests the commit list alongside the PR fields'] = function()
   restore()
 
   expect.equality(calls, {
-    'gh pr view 42 --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits',
+    'gh pr view 42 --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits,statusCheckRollup',
   })
   expect.equality(result.commits, { { oid = 'abc' } })
+  expect.equality(result.statusCheckRollup[1].name, 'build')
+end
+
+T['get_pr_info falls back when gh does not know statusCheckRollup'] = function()
+  local calls = {}
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      table.insert(calls, cmd)
+      if #calls == 1 then
+        return '', 'Unknown JSON field: "statusCheckRollup"'
+      end
+      return '{"number":42}', ''
+    end,
+  })
+
+  local result = async
+    .run(function()
+      return gh.get_pr_info(42)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(calls, {
+    'gh pr view 42 --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits,statusCheckRollup',
+    'gh pr view 42 --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits',
+  })
+  expect.equality(result.number, 42)
 end
 
 T['get_commit fetches a single commit from the commits API'] = function()

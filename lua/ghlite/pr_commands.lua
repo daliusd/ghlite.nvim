@@ -491,6 +491,10 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, line)
   end
 
+  for _, line in ipairs(commit_utils.format_pr_checks(pr_info.statusCheckRollup)) do
+    table.insert(pr_view, line)
+  end
+
   local commits_offset = #pr_view
   local commit_lines, commit_index_by_line = commit_utils.format_commits(pr_info.commits)
   for _, line in ipairs(commit_lines) do

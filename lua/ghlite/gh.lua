@@ -40,12 +40,16 @@ end
 
 --- @async
 function M.get_pr_info(pr_number)
-  local result = system.run_str(
-    f(
-      'gh pr view %s --json url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits',
-      pr_number
-    )
-  )
+  local fields =
+    'url,author,title,number,labels,comments,reviews,body,changedFiles,isDraft,createdAt,headRefName,commits,statusCheckRollup'
+  local result, stderr = system.run_str(f('gh pr view %s --json %s', pr_number, fields))
+
+  -- Keep the PR view usable with gh versions from before statusCheckRollup.
+  if string.sub(stderr or '', 1, #'Unknown JSON field') == 'Unknown JSON field' then
+    fields = fields:gsub(',statusCheckRollup', '')
+    result = system.run_str(f('gh pr view %s --json %s', pr_number, fields))
+  end
+
   if result == nil then
     return nil
   end

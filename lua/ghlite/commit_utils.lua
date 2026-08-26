@@ -115,6 +115,62 @@ function M.format_checks(check_runs)
   return lines
 end
 
+--- Render the heterogeneous `statusCheckRollup` returned by `gh pr view`.
+--- @param checks StatusCheckRollup[]|nil
+--- @return string[]
+function M.format_pr_checks(checks)
+  if checks == nil or #checks == 0 then
+    return {}
+  end
+
+  local entries = {}
+  for _, check in ipairs(checks) do
+    local name = check.name or check.context or 'unknown check'
+    local raw_state
+    local outcome
+
+    if check.context ~= nil then
+      raw_state = check.state or 'unknown'
+      local state = raw_state:lower()
+      if state == 'success' then
+        outcome = 'passed'
+      elseif state == 'pending' or state == 'expected' then
+        outcome = 'pending'
+      else
+        outcome = 'failed'
+      end
+    elseif (check.status or ''):lower() ~= 'completed' then
+      raw_state = check.status or 'unknown'
+      outcome = 'pending'
+    else
+      raw_state = check.conclusion or 'unknown'
+      local conclusion = raw_state:lower()
+      if conclusion == 'success' or conclusion == 'neutral' or conclusion == 'skipped' then
+        outcome = 'passed'
+      else
+        outcome = 'failed'
+      end
+    end
+
+    local detail = check.workflowName or check.description
+    if detail ~= nil and detail ~= '' then
+      name = string.format('%s — %s', name, detail)
+    end
+    table.insert(entries, { name = name, state = raw_state, outcome = outcome })
+  end
+
+  table.sort(entries, function(a, b)
+    return a.name:lower() < b.name:lower()
+  end)
+
+  local icons = { passed = '✓', failed = '✗', pending = '⏳' }
+  local lines = { '', '## Checks', '' }
+  for _, entry in ipairs(entries) do
+    table.insert(lines, string.format('    %s %s (%s)', icons[entry.outcome], entry.name, entry.state))
+  end
+  return lines
+end
+
 --- @param verification table|nil
 --- @return string|nil
 function M.format_verification(verification)
