@@ -381,9 +381,9 @@ local function format_review_comments_for_pr_view()
 
       for _, comment_group in pairs(comments_in_file) do
         if #comment_group.comments > 0 then
-          local relative_filename = filename:match('^.*/(.*)$') or filename
           local outdated_suffix = comment_group.outdated and ' [outdated]' or ''
           local resolution_suffix = comment_group.resolved and ' [resolved]' or ' [unresolved]'
+          local relative_filename = vim.fn.fnamemodify(filename, ':.')
           table.insert(
             review_section,
             string.format('### %s:%d%s%s', relative_filename, comment_group.line, outdated_suffix, resolution_suffix)

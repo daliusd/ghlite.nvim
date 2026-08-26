@@ -37,7 +37,7 @@ T['ca on a PR view review-comment body replies to its thread'] = function()
     ['ghlite.comments'] = {
       load_comments_only = function()
         state.comments_list = {
-          ['/repo/lua/a.lua'] = {
+          [vim.fn.getcwd() .. '/lua/a.lua'] = {
             {
               id = 55,
               line = 2,
@@ -118,6 +118,7 @@ T['ca on a PR view review-comment body replies to its thread'] = function()
     expect.equality(vim.tbl_contains(view_lines, '## Checks'), true)
     expect.equality(vim.tbl_contains(view_lines, '    ✓ build (SUCCESS)'), true)
     expect.equality(vim.tbl_contains(view_lines, '    ⏳ deploy (PENDING)'), true)
+    expect.equality(vim.tbl_contains(view_lines, '### lua/a.lua:2 [unresolved]'), true)
     vim.api.nvim_win_set_cursor(0, { body_line, 0 })
 
     local keymap = vim.fn.maparg('ca', 'n', false, true)
