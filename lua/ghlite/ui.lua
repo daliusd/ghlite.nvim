@@ -93,7 +93,11 @@ end
 --- @return integer|nil idx
 function M.select(items, opts)
   M.schedule()
-  return async.await(3, vim.ui.select, items, opts)
+  -- Some `vim.ui.select` implementations (for example snacks.nvim) need to
+  -- be invoked through a wrapper for async.nvim to receive their callback.
+  return async.await(3, function(select_items, select_opts, callback)
+    vim.ui.select(select_items, select_opts, callback)
+  end, items, opts)
 end
 
 return M
