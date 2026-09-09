@@ -16,12 +16,13 @@ require('ghlite.types')
 local M = {}
 
 --- @async
+--- @param silent boolean|nil suppress expected errors when probing passively
 --- @return PullRequest|nil
-function M.get_selected_pr()
+function M.get_selected_pr(silent)
   if state.selected_PR ~= nil then
     return state.selected_PR
   end
-  local current_pr = gh.get_current_pr()
+  local current_pr = gh.get_current_pr(silent)
   if current_pr ~= nil then
     state.selected_PR = current_pr
     return current_pr

@@ -9,12 +9,13 @@ local M = {}
 --- Run a command given as a space-separated string.
 --- @async
 --- @param cmd string
+--- @param silent boolean|nil suppress stderr notifications
 --- @return string stdout
 --- @return string stderr
-function M.run_str(cmd)
+function M.run_str(cmd, silent)
   local cmd_split = vim.split(cmd, ' ')
   local result = async.await(3, vim.system, cmd_split, { text = true })
-  if #result.stderr > 0 then
+  if #result.stderr > 0 and not silent then
     config.log('system.run_str error', result.stderr)
     ui.notify(result.stderr, vim.log.levels.ERROR)
   end

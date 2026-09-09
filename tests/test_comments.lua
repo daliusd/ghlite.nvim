@@ -543,6 +543,51 @@ T['delete_comment deletes the selected own comment and refreshes content'] = fun
   vim.api.nvim_buf_delete(bufnr, { force = true })
 end
 
+T['diffview PR warning is suppressed only for passive buffer loading'] = function()
+  local comments = require('ghlite.comments')
+  local original_diffview_lib = package.loaded['diffview.lib']
+  local notifications = 0
+  local lookup_modes = {}
+
+  package.loaded['diffview.lib'] = {
+    get_current_view = function()
+      return {
+        infer_cur_file = function()
+          return { absolute_path = '/repo/file.lua' }
+        end,
+      }
+    end,
+  }
+
+  local ok, err = pcall(function()
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        get_selected_pr = function(silent)
+          table.insert(lookup_modes, silent or false)
+          return nil
+        end,
+      },
+      ['ghlite.ui'] = {
+        notify = function()
+          notifications = notifications + 1
+        end,
+      },
+    }, function()
+      expect.equality(comments.get_diffview_filename('diffview://tab/file.lua', true), nil)
+      expect.equality(notifications, 0)
+
+      expect.equality(comments.get_diffview_filename('diffview://tab/file.lua'), nil)
+      expect.equality(notifications, 1)
+      expect.equality(lookup_modes, { true, false })
+    end)
+  end)
+  package.loaded['diffview.lib'] = original_diffview_lib
+
+  if not ok then
+    error(err)
+  end
+end
+
 T['buffer type helpers identify diffview and codediff buffers'] = function()
   local comments = require('ghlite.comments')
 

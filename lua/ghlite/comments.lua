@@ -94,7 +94,7 @@ M.load_comments_on_buffer = function(bufnr)
 
   return task.run(function()
     if M.is_in_diffview(buf_name) then
-      local filename = M.get_diffview_filename(buf_name)
+      local filename = M.get_diffview_filename(buf_name, true)
       if filename then
         M.load_comments_on_buffer_by_filename(bufnr, filename)
       end
@@ -103,7 +103,7 @@ M.load_comments_on_buffer = function(bufnr)
 
     -- Handle CodeDiff buffers
     if M.is_in_codediff(buf_name) then
-      local filename = M.get_codediff_filename(buf_name)
+      local filename = M.get_codediff_filename(buf_name, true)
       if filename then
         M.load_comments_on_buffer_by_filename(bufnr, filename)
       end
@@ -556,17 +556,21 @@ M.is_in_codediff = function(buf_name)
 end
 
 --- @async
+--- @param buf_name string
+--- @param silent boolean|nil
 --- @return string|nil
-M.get_diffview_filename = function(buf_name)
+M.get_diffview_filename = function(buf_name, silent)
   local view = require('diffview.lib').get_current_view()
   local file = view:infer_cur_file()
   if not file then
     return nil
   end
 
-  local selected_pr = pr_utils.get_selected_pr()
+  local selected_pr = pr_utils.get_selected_pr(silent)
   if selected_pr == nil then
-    ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+    if not silent then
+      ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+    end
     return nil
   end
 
@@ -585,8 +589,10 @@ M.get_diffview_filename = function(buf_name)
 end
 
 --- @async
+--- @param buf_name string
+--- @param silent boolean|nil
 --- @return string|nil
-M.get_codediff_filename = function(buf_name)
+M.get_codediff_filename = function(buf_name, silent)
   -- Try using CodeDiff API first (Option C)
   local has_codediff, virtual_file = pcall(require, 'codediff.core.virtual_file')
 
@@ -599,9 +605,11 @@ M.get_codediff_filename = function(buf_name)
     end
 
     -- Verify commit hash matches PR's headRefOid
-    local selected_pr = pr_utils.get_selected_pr()
+    local selected_pr = pr_utils.get_selected_pr(silent)
     if selected_pr == nil then
-      ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+      if not silent then
+        ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+      end
       return nil
     end
 
@@ -634,9 +642,11 @@ M.get_codediff_filename = function(buf_name)
       return nil
     end
 
-    local selected_pr = pr_utils.get_selected_pr()
+    local selected_pr = pr_utils.get_selected_pr(silent)
     if selected_pr == nil then
-      ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+      if not silent then
+        ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+      end
       return nil
     end
 

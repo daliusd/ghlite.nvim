@@ -61,13 +61,15 @@ T['get_selected_pr returns already selected PR without calling gh'] = function()
   end)
 end
 
-T['get_selected_pr stores current PR when none is selected'] = function()
+T['get_selected_pr stores current PR and forwards passive lookup mode'] = function()
   reset_state()
   local current_pr = { number = 42, headRefName = 'feature' }
+  local lookup_mode
 
   with_overrides({
     ['ghlite.gh'] = {
-      get_current_pr = function()
+      get_current_pr = function(silent)
+        lookup_mode = silent
         return current_pr
       end,
     },
@@ -77,12 +79,13 @@ T['get_selected_pr stores current PR when none is selected'] = function()
 
     local result = async
       .run(function()
-        return pr_utils.get_selected_pr()
+        return pr_utils.get_selected_pr(true)
       end)
       :wait(1000)
 
     expect.equality(result, current_pr)
     expect.equality(state.selected_PR, current_pr)
+    expect.equality(lookup_mode, true)
   end)
 end
 

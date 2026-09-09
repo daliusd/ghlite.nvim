@@ -19,16 +19,17 @@ local function parse_or_default(str, default)
 end
 
 --- @async
+--- @param silent boolean|nil suppress expected gh errors when probing passively
 --- @return PullRequest|nil
-function M.get_current_pr()
+function M.get_current_pr(silent)
   local result, stderr =
-    system.run_str('gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision')
+    system.run_str('gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision', silent)
 
   local prefix = 'Unknown JSON field'
   if result == nil then
     return nil
   elseif string.sub(stderr, 1, #prefix) == prefix then
-    local result2 = system.run_str('gh pr view --json headRefName,headRefOid,number,baseRefName,reviewDecision')
+    local result2 = system.run_str('gh pr view --json headRefName,headRefOid,number,baseRefName,reviewDecision', silent)
     if result2 == nil then
       return nil
     end

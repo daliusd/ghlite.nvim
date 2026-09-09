@@ -23,17 +23,18 @@ local function reload_gh_with_system(system_overrides)
     end
 end
 
-T['get_current_pr parses gh JSON response'] = function()
+T['get_current_pr parses gh JSON response and forwards passive lookup mode'] = function()
   local gh, restore = reload_gh_with_system({
-    run_str = function(cmd)
+    run_str = function(cmd, silent)
       expect.equality(cmd, 'gh pr view --json headRefName,headRefOid,number,baseRefName,baseRefOid,reviewDecision')
+      expect.equality(silent, true)
       return '{"number":42,"headRefName":"feature"}', ''
     end,
   })
 
   local result = async
     .run(function()
-      return gh.get_current_pr()
+      return gh.get_current_pr(true)
     end)
     :wait(1000)
   restore()
