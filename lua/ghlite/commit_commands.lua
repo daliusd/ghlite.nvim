@@ -1,6 +1,7 @@
 local commit_utils = require('ghlite.commit_utils')
 local config = require('ghlite.config')
 local diff_utils = require('ghlite.diff_utils')
+local difftool = require('ghlite.difftool')
 local gh = require('ghlite.gh')
 local system = require('ghlite.system')
 local task = require('ghlite.task')
@@ -86,13 +87,18 @@ local function open_commit_diff(buf)
       return
     end
 
+    difftool.ensure_loaded()
     local diff_tool = diff_utils.get_diff_tool(config.s.diff_tool, is_command_available)
     if diff_tool == nil then
-      ui.notify('No diff tool available. Install diffview.nvim or codediff.nvim', vim.log.levels.ERROR)
+      ui.notify('No diff tool available. Install nvim.difftool, diffview.nvim, or codediff.nvim', vim.log.levels.ERROR)
       return
     end
 
-    if diff_tool == 'diffview' then
+    if diff_tool == 'difftool' then
+      task.run(function()
+        difftool.open_revisions(view.parent_sha, view.sha)
+      end)
+    elseif diff_tool == 'diffview' then
       vim.cmd(string.format('DiffviewOpen %s..%s', view.parent_sha, view.sha))
     elseif diff_tool == 'codediff' then
       vim.cmd(string.format('CodeDiff %s %s', view.parent_sha, view.sha))

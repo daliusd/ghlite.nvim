@@ -56,6 +56,12 @@ T['get_diff_tool honors explicit config and auto-detects installed tools'] = fun
   local diff_utils = require('ghlite.diff_utils')
 
   expect.equality(
+    diff_utils.get_diff_tool('difftool', function()
+      return false
+    end),
+    'difftool'
+  )
+  expect.equality(
     diff_utils.get_diff_tool('diffview', function()
       return false
     end),
@@ -66,6 +72,12 @@ T['get_diff_tool honors explicit config and auto-detects installed tools'] = fun
       return false
     end),
     'codediff'
+  )
+  expect.equality(
+    diff_utils.get_diff_tool('auto', function(cmd)
+      return cmd == 'DiffTool'
+    end),
+    'difftool'
   )
   expect.equality(
     diff_utils.get_diff_tool('auto', function(cmd)

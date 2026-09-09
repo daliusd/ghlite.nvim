@@ -110,6 +110,12 @@ M.load_comments_on_buffer = function(bufnr)
       return
     end
 
+    local filename = M.get_difftool_filename(buf_name)
+    if filename then
+      M.load_comments_on_buffer_by_filename(bufnr, filename)
+      return
+    end
+
     if not pr_utils.is_pr_checked_out() then
       return
     end
@@ -198,6 +204,8 @@ local function get_current_filename_and_line()
       return nil
     end
     return filename, current_start_line, current_line
+  elseif M.get_difftool_filename(current_filename) then
+    return M.get_difftool_filename(current_filename), current_start_line, current_line
   else
     local is_pr_checked_out = pr_utils.is_pr_checked_out()
     local checked_out_pr, declined = pr_utils.get_checked_out_pr()
@@ -553,6 +561,18 @@ end
 
 M.is_in_codediff = function(buf_name)
   return string.sub(buf_name, 1, 12) == 'codediff:///'
+end
+
+--- Translate a file in the built-in difftool's head worktree to the main checkout.
+--- @param buf_name string
+--- @return string|nil
+M.get_difftool_filename = function(buf_name)
+  for worktree_root, git_root in pairs(state.difftool_paths) do
+    local prefix = worktree_root .. '/'
+    if vim.startswith(buf_name, prefix) then
+      return git_root .. '/' .. buf_name:sub(#prefix + 1)
+    end
+  end
 end
 
 --- @async

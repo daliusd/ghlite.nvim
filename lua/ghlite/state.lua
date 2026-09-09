@@ -17,4 +17,7 @@ M.filename_line_to_diff_line = {}
 --- @type table<number, FileNameAndLinePair>
 M.diff_line_to_filename_line = {}
 
+--- Maps built-in difftool worktree roots to their corresponding repository root.
+M.difftool_paths = {}
+
 return M

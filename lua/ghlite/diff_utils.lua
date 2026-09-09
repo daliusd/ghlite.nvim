@@ -4,13 +4,17 @@ local M = {}
 --- @param is_command_available fun(cmd: string): boolean
 --- @return string|nil
 function M.get_diff_tool(configured, is_command_available)
-  if configured == 'diffview' then
+  if configured == 'difftool' then
+    return 'difftool'
+  elseif configured == 'diffview' then
     return 'diffview'
   elseif configured == 'codediff' then
     return 'codediff'
   end
 
-  if is_command_available('DiffviewOpen') then
+  if is_command_available('DiffTool') then
+    return 'difftool'
+  elseif is_command_available('DiffviewOpen') then
     return 'diffview'
   elseif is_command_available('CodeDiff') then
     return 'codediff'

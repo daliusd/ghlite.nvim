@@ -1,6 +1,7 @@
 local comments = require('ghlite.comments')
 local config = require('ghlite.config')
 local diff_utils = require('ghlite.diff_utils')
+local difftool = require('ghlite.difftool')
 local gh = require('ghlite.gh')
 local pr_commands = require('ghlite.pr_commands')
 local pr_utils = require('ghlite.pr_utils')
@@ -19,6 +20,7 @@ end
 
 --- @return string|nil
 local function get_diff_tool()
+  difftool.ensure_loaded()
   return diff_utils.get_diff_tool(config.s.diff_tool, is_command_available)
 end
 
@@ -172,7 +174,9 @@ function M.load_pr_diffview()
   if diff_tool == nil then
     local configured = config.s.diff_tool
     if configured == 'auto' then
-      ui.notify('No diff tool available. Install diffview.nvim or codediff.nvim', vim.log.levels.ERROR)
+      ui.notify('No diff tool available. Install nvim.difftool, diffview.nvim, or codediff.nvim', vim.log.levels.ERROR)
+    elseif configured == 'difftool' then
+      ui.notify('Neovim built-in difftool is unavailable (requires nvim.difftool).', vim.log.levels.ERROR)
     elseif configured == 'diffview' then
       ui.notify('diffview.nvim is not installed', vim.log.levels.ERROR)
     elseif configured == 'codediff' then
@@ -207,7 +211,9 @@ function M.load_pr_diffview()
     local is_checked_out = pr_utils.is_pr_checked_out()
 
     ui.schedule()
-    if diff_tool == 'diffview' then
+    if diff_tool == 'difftool' then
+      difftool.open_revisions(mergeBaseOid, selected_pr.headRefOid, is_checked_out)
+    elseif diff_tool == 'diffview' then
       vim.cmd(string.format('DiffviewOpen %s..%s', mergeBaseOid, selected_pr.headRefOid))
     elseif diff_tool == 'codediff' then
       if is_checked_out then
