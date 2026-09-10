@@ -13,6 +13,7 @@
 --- @field diff_hunk string
 --- @field commit_id? string
 --- @field original_commit_id? string
+--- @field pending boolean held in an unsubmitted review
 
 --- @class GroupedComment
 --- @field id number

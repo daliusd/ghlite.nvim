@@ -63,7 +63,7 @@ M.load_comments = function()
     end
 
     ui.notify('Comment loading started...')
-    state.comments_list = gh.load_comments(checked_out_pr.number)
+    state.comments_list = gh.load_comments(checked_out_pr.number, pr_utils.active_pending_review(checked_out_pr.number))
     ui.schedule()
     load_comments_to_quickfix_list()
 
@@ -74,7 +74,7 @@ end
 
 --- @async
 M.load_comments_only = function(pr_to_load)
-  state.comments_list = gh.load_comments(pr_to_load)
+  state.comments_list = gh.load_comments(pr_to_load, pr_utils.active_pending_review(pr_to_load))
 end
 
 M.load_comments_on_current_buffer = function()

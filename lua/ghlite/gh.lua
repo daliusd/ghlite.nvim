@@ -124,8 +124,9 @@ end
 
 --- @async
 --- @param pr_number number
+--- @param pending_review PendingReview|nil include the comments held in this review
 --- @return table<string, GroupedComment[]>
-function M.load_comments(pr_number)
+function M.load_comments(pr_number, pending_review)
   local repo = get_repo()
   config.log('repo', repo)
   local comments_json = system.run_str(f('gh api repos/%s/pulls/%d/comments', repo, pr_number))
@@ -139,6 +140,12 @@ function M.load_comments(pr_number)
   comments = utils.filter_array(comments, is_valid_comment)
   config.log('Valid comments count', #comments)
   config.log('comments', comments)
+
+  if pending_review ~= nil then
+    for _, comment in ipairs(M.get_pending_comments(pending_review)) do
+      table.insert(comments, comment)
+    end
+  end
 
   local thread_statuses = M.get_review_thread_statuses(pr_number, repo)
   local grouped_comments =
@@ -336,6 +343,41 @@ function M.start_review(pr_number)
     return nil
   end
   return { id = resp.id, node_id = resp.node_id, pr_number = pr_number }
+end
+
+--- Comments held in a pending review, which the PR comments listing omits.
+--- They carry no line, side or position, so the line is recovered from the diff hunk.
+--- @async
+--- @param review PendingReview
+--- @return table[] REST-shaped review comments
+function M.get_pending_comments(review)
+  local repo = get_repo()
+  if repo == nil then
+    return {}
+  end
+
+  local resp = parse_or_default(
+    system.run_str(f('gh api repos/%s/pulls/%d/reviews/%d/comments', repo, review.pr_number, review.id)),
+    {}
+  )
+  if type(resp) ~= 'table' or resp.message ~= nil then
+    config.log('get_pending_comments failed', resp)
+    return {}
+  end
+
+  local comments = {}
+  for _, comment in ipairs(resp) do
+    if comment.line == nil or comment.line == vim.NIL then
+      comment.line = comments_utils.line_from_diff_hunk(comment.diff_hunk)
+      comment.side = 'RIGHT'
+    end
+    comment.pending = true
+    if comment.line ~= nil then
+      table.insert(comments, comment)
+    end
+  end
+  config.log('pending comments count', #comments)
+  return comments
 end
 
 local pending_comment_fields = 'databaseId url body updatedAt path diffHunk author { login }'
