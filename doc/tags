@@ -6,12 +6,17 @@
 :GHLitePRDeleteComment	ghlite.txt	/*:GHLitePRDeleteComment*
 :GHLitePRDiff	ghlite.txt	/*:GHLitePRDiff*
 :GHLitePRDiffview	ghlite.txt	/*:GHLitePRDiffview*
+:GHLitePRDiscardReview	ghlite.txt	/*:GHLitePRDiscardReview*
 :GHLitePRList	ghlite.txt	/*:GHLitePRList*
 :GHLitePRLoadComments	ghlite.txt	/*:GHLitePRLoadComments*
 :GHLitePRMerge	ghlite.txt	/*:GHLitePRMerge*
 :GHLitePROpenComment	ghlite.txt	/*:GHLitePROpenComment*
 :GHLitePRRequestChanges	ghlite.txt	/*:GHLitePRRequestChanges*
+:GHLitePRResolveComment	ghlite.txt	/*:GHLitePRResolveComment*
 :GHLitePRSelect	ghlite.txt	/*:GHLitePRSelect*
+:GHLitePRStartReview	ghlite.txt	/*:GHLitePRStartReview*
+:GHLitePRSubmitReview	ghlite.txt	/*:GHLitePRSubmitReview*
+:GHLitePRUnresolveComment	ghlite.txt	/*:GHLitePRUnresolveComment*
 :GHLitePRUpdateComment	ghlite.txt	/*:GHLitePRUpdateComment*
 :GHLitePRView	ghlite.txt	/*:GHLitePRView*
 ghlite-pr-commands	ghlite.txt	/*ghlite-pr-commands*
