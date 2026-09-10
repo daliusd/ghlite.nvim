@@ -214,26 +214,107 @@ local function get_current_filename_and_line()
   end
 end
 
---- Send a reply to a review-comment thread.
+--- Send a reply to a review-comment thread. The reply joins the pending review when
+--- one is open for this PR, otherwise it is posted immediately.
 --- @async
 --- @param pr_number number
 --- @param input string
 --- @param grouped_comment GroupedComment
 --- @param on_success fun()|nil
 M.reply_to_comment = function(pr_number, input, grouped_comment, on_success)
-  ui.notify('Sending comment...')
-  local resp = gh.reply_to_comment(pr_number, input, grouped_comment.id)
-  if resp.errors == nil then
-    ui.notify('Comment sent.')
-    local new_comment = comments_utils.convert_comment(resp)
-    table.insert(grouped_comment.comments, new_comment)
-    refresh_content(grouped_comment)
-    if type(on_success) == 'function' then
-      on_success()
+  local review = pr_utils.active_pending_review(pr_number)
+  local new_comment
+
+  if review ~= nil then
+    -- Replying through GraphQL needs the thread id, which only the comment load fills in.
+    if grouped_comment.thread_id == nil then
+      ui.notify('Cannot add reply to review: run :GHLitePRLoadComments first.', vim.log.levels.WARN)
+      return
+    end
+
+    ui.notify('Adding reply to review...')
+    local node = gh.reply_to_pending_comment(review, input, grouped_comment.thread_id)
+    if node ~= nil then
+      new_comment = comments_utils.convert_pending_comment(node, grouped_comment.start_line, grouped_comment.line)
     end
   else
-    ui.notify('Failed to send comment.', vim.log.levels.WARN)
+    ui.notify('Sending comment...')
+    local resp = gh.reply_to_comment(pr_number, input, grouped_comment.id)
+    if resp.errors == nil then
+      new_comment = comments_utils.convert_comment(resp)
+    end
   end
+
+  if new_comment == nil then
+    ui.notify('Failed to send comment.', vim.log.levels.WARN)
+    return
+  end
+
+  ui.notify(review ~= nil and 'Reply added to review.' or 'Comment sent.')
+  table.insert(grouped_comment.comments, new_comment)
+  refresh_content(grouped_comment)
+  if type(on_success) == 'function' then
+    on_success()
+  end
+end
+
+--- Start a new review-comment thread. The comment joins the pending review when one is
+--- open for this PR, otherwise it is posted immediately.
+--- @async
+--- @param selected_pr PullRequest
+--- @param input string
+--- @param filename string absolute path
+--- @param start_line number
+--- @param line number
+local function new_conversation(selected_pr, input, filename, start_line, line)
+  local review = pr_utils.active_pending_review(selected_pr.number)
+  local path = filename:sub(#utils.get_git_root() + 2)
+  local new_comment, id, url, thread_id
+
+  if review ~= nil then
+    ui.notify('Adding comment to review...')
+    local thread = gh.new_pending_comment(review, input, path, start_line, line)
+    local node = thread ~= nil and thread.comments and thread.comments.nodes and thread.comments.nodes[1]
+    if node then
+      new_comment = comments_utils.convert_pending_comment(node, start_line, line)
+      id, url, thread_id = node.databaseId, node.url, thread.id
+    end
+  else
+    ui.notify('Sending comment...')
+    local resp = gh.new_comment(selected_pr, input, path, start_line, line)
+    if resp['errors'] == nil then
+      new_comment = comments_utils.convert_comment(resp)
+      id, url = resp.id, resp.html_url
+    end
+  end
+
+  if new_comment == nil then
+    ui.notify('Failed to send comment.', vim.log.levels.WARN)
+    return
+  end
+
+  --- @type GroupedComment
+  local new_comment_group = {
+    id = id,
+    line = line,
+    start_line = start_line,
+    url = url,
+    thread_id = thread_id,
+    comments = { new_comment },
+    resolved = false,
+    content = comments_utils.prepare_content({ new_comment }, {
+      comment_hunk = config.s.comment_hunk,
+      resolved = false,
+    }),
+  }
+  if state.comments_list[filename] == nil then
+    state.comments_list[filename] = { new_comment_group }
+  else
+    table.insert(state.comments_list[filename], new_comment_group)
+  end
+
+  ui.notify(review ~= nil and 'Comment added to review.' or 'Comment sent.')
+  M.load_comments_on_current_buffer()
 end
 
 M.comment_on_line = function()
@@ -294,40 +375,7 @@ M.comment_on_line = function()
             end
           else
             if current_filename:sub(1, #git_root) == git_root then
-              ui.notify('Sending comment...')
-              local resp = gh.new_comment(
-                state.selected_PR,
-                input,
-                current_filename:sub(#git_root + 2),
-                current_start_line,
-                current_line
-              )
-              if resp['errors'] == nil then
-                local new_comment = comments_utils.convert_comment(resp)
-                --- @type GroupedComment
-                local new_comment_group = {
-                  id = resp.id,
-                  line = current_line,
-                  start_line = current_start_line,
-                  url = resp.html_url,
-                  comments = { new_comment },
-                  resolved = false,
-                  content = comments_utils.prepare_content({ new_comment }, {
-                    comment_hunk = config.s.comment_hunk,
-                    resolved = false,
-                  }),
-                }
-                if state.comments_list[current_filename] == nil then
-                  state.comments_list[current_filename] = { new_comment_group }
-                else
-                  table.insert(state.comments_list[current_filename], new_comment_group)
-                end
-
-                ui.notify('Comment sent.')
-                M.load_comments_on_current_buffer()
-              else
-                ui.notify('Failed to send comment.', vim.log.levels.WARN)
-              end
+              new_conversation(state.selected_PR, input, current_filename, current_start_line, current_line)
             end
           end
         end)

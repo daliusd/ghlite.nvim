@@ -7,6 +7,7 @@ local function reset_state()
   local state = require('ghlite.state')
   state.selected_PR = nil
   state.comments_list = {}
+  state.pending_review = nil
   state.diff_buffer_id = nil
   state.filename_line_to_diff_line = {}
   state.diff_line_to_filename_line = {}
@@ -270,6 +271,127 @@ T['comment_on_line creates a new comment and stores it locally'] = function()
   expect.equality(refresh_count, 1)
 
   vim.api.nvim_buf_delete(bufnr, { force = true })
+end
+
+T['comment_on_line adds the comment to the pending review instead of posting it'] = function()
+  reset_state()
+  local comments = require('ghlite.comments')
+  local state = require('ghlite.state')
+  state.selected_PR = { number = 12, headRefOid = 'abc123' }
+  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two', 'three' })
+  vim.api.nvim_set_current_buf(bufnr)
+  vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+  local pending_call
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+      is_pr_checked_out = function()
+        return true
+      end,
+      get_checked_out_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.utils'] = {
+      get_git_root = function()
+        return '/repo'
+      end,
+      get_comment = function(_, _, _, _, _, cb)
+        cb('new body')
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+    ['ghlite.gh'] = {
+      new_comment = function()
+        error('a started review must not post comments immediately')
+      end,
+      new_pending_comment = function(review, body, path, start_line, line)
+        pending_call = { review = review, body = body, path = path, start_line = start_line, line = line }
+        return {
+          id = 'PRRT_1',
+          comments = {
+            nodes = {
+              {
+                databaseId = 101,
+                url = 'https://github.test/comment/101',
+                path = path,
+                body = body,
+                updatedAt = 'now',
+                diffHunk = '@@ -2 +2 @@',
+                author = { login = 'alice' },
+              },
+            },
+          },
+        }
+      end,
+    },
+    ['ghlite.comments'] = {
+      load_comments_on_current_buffer = function() end,
+    },
+  }, function()
+    comments.comment_on_line():wait(1000)
+  end)
+
+  expect.equality(pending_call, {
+    review = state.pending_review,
+    body = 'new body',
+    path = 'lua/a.lua',
+    start_line = 2,
+    line = 2,
+  })
+
+  local stored = state.comments_list['/repo/lua/a.lua'][1]
+  expect.equality(stored.id, 101)
+  expect.equality(stored.comments[1].user, 'alice')
+  -- The thread id arrives with the mutation, so the comment can be resolved without
+  -- reloading comments first.
+  expect.equality(stored.thread_id, 'PRRT_1')
+
+  vim.api.nvim_buf_delete(bufnr, { force = true })
+end
+
+T['reply refuses to join the review when the thread id is unknown'] = function()
+  reset_state()
+  local comments = require('ghlite.comments')
+  local state = require('ghlite.state')
+  state.selected_PR = { number = 12 }
+  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+
+  local notifications = {}
+  local conversation = { id = 55, line = 2, start_line = 2, comments = {}, content = 'existing' }
+  with_overrides({
+    ['ghlite.ui'] = {
+      notify = function(message)
+        table.insert(notifications, message)
+      end,
+    },
+    ['ghlite.gh'] = {
+      reply_to_comment = function()
+        error('a started review must not post replies immediately')
+      end,
+      reply_to_pending_comment = function()
+        error('replying without a thread id would target the wrong thread')
+      end,
+    },
+  }, function()
+    async
+      .run(function()
+        comments.reply_to_comment(12, 'body', conversation)
+      end)
+      :wait(1000)
+  end)
+
+  expect.equality(#conversation.comments, 0)
+  expect.equality(notifications, { 'Cannot add reply to review: run :GHLitePRLoadComments first.' })
 end
 
 T['comment_on_line replies to the existing conversation and updates content'] = function()
