@@ -793,6 +793,7 @@ function M.approve_pr()
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to approve', vim.log.levels.ERROR)
+      return
     end
 
     ui.notify('PR approve started...')
