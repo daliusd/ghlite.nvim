@@ -176,4 +176,107 @@ T['comment_on_pr quotes a PR comment and creates a top-level comment'] = functio
   expect.equality(new_comment_call, { pr = state.selected_PR, body = 'My response' })
 end
 
+T['start_review adopts the review GitHub already holds pending'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12 }
+  state.pending_review = nil
+
+  local started = false
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.gh'] = {
+      get_pending_review = function()
+        return { id = 3, node_id = 'PRR_three', pr_number = 12 }
+      end,
+      start_review = function()
+        started = true
+        return { id = 4, node_id = 'PRR_four', pr_number = 12 }
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+  }, function()
+    pr_commands.start_review():wait(1000)
+  end)
+
+  expect.equality(started, false)
+  expect.equality(state.pending_review, { id = 3, node_id = 'PRR_three', pr_number = 12 })
+  state.pending_review = nil
+end
+
+T['approve_pr submits the pending review instead of a standalone approval'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12 }
+  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+
+  local submit_call
+  local standalone_approve = false
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.gh'] = {
+      submit_review = function(review, event, body)
+        submit_call = { review = review, event = event, body = body }
+        return { id = 3 }
+      end,
+      approve_pr = function()
+        standalone_approve = true
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+  }, function()
+    pr_commands.approve_pr():wait(1000)
+  end)
+
+  expect.equality(standalone_approve, false)
+  expect.equality(submit_call.event, 'APPROVE')
+  expect.equality(submit_call.review.id, 3)
+  -- The review is gone once submitted, so later comments post immediately again.
+  expect.equality(state.pending_review, nil)
+end
+
+T['approve_pr ignores a pending review left over from another PR'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12 }
+  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 99 }
+
+  local approved_pr
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.gh'] = {
+      submit_review = function()
+        error('should not submit a review belonging to another PR')
+      end,
+      approve_pr = function(number)
+        approved_pr = number
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+  }, function()
+    pr_commands.approve_pr():wait(1000)
+  end)
+
+  expect.equality(approved_pr, 12)
+  state.pending_review = nil
+end
+
 return T

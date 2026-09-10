@@ -788,11 +788,124 @@ M.comment_on_pr = function(on_success, comment_group, comment)
   end)
 end
 
+--- @async
+--- @param review PendingReview
+--- @param event 'APPROVE'|'REQUEST_CHANGES'|'COMMENT'
+--- @param body string|nil
+local function submit_pending_review(review, event, body)
+  ui.notify('Review submit started...')
+  if gh.submit_review(review, event, body) == nil then
+    ui.notify('Failed to submit review.', vim.log.levels.ERROR)
+    return
+  end
+  state.pending_review = nil
+  ui.notify('Review submitted.')
+end
+
+function M.start_review()
+  return task.run(function()
+    local selected_pr = pr_utils.get_selected_pr()
+    if selected_pr == nil then
+      ui.notify('No PR selected to review', vim.log.levels.ERROR)
+      return
+    end
+    if pr_utils.active_pending_review(selected_pr.number) ~= nil then
+      ui.notify('Review already started.', vim.log.levels.WARN)
+      return
+    end
+
+    -- GitHub allows one pending review per PR, so adopt a review left over from an
+    -- earlier session or started in the web UI instead of failing to create a second.
+    local review = gh.get_pending_review(selected_pr.number) or gh.start_review(selected_pr.number)
+    if review == nil then
+      ui.notify('Failed to start review.', vim.log.levels.ERROR)
+      return
+    end
+
+    state.pending_review = review
+    ui.notify('Review started. Comments are held until :GHLitePRSubmitReview.')
+  end)
+end
+
+function M.submit_review()
+  return task.run(function()
+    local selected_pr = pr_utils.get_selected_pr()
+    if selected_pr == nil then
+      ui.notify('No PR selected to review', vim.log.levels.ERROR)
+      return
+    end
+
+    local review = pr_utils.active_pending_review(selected_pr.number)
+    if review == nil then
+      ui.notify('No review started. Use :GHLitePRStartReview.', vim.log.levels.WARN)
+      return
+    end
+
+    local event = ui.select({ 'COMMENT', 'APPROVE', 'REQUEST_CHANGES' }, { prompt = 'Submit review as:' })
+    if event == nil then
+      return
+    end
+    if event == 'APPROVE' then
+      submit_pending_review(review, event)
+      return
+    end
+
+    -- GitHub requires a body for every event except APPROVE.
+    ui.schedule()
+    local prompt = '<!-- Type your review summary and press '
+      .. config.s.keymaps.comment.send_comment
+      .. ' to submit the review: -->'
+
+    utils.get_comment(
+      'PR Review Submit: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
+      config.s.comment_split,
+      prompt,
+      { prompt, '' },
+      config.s.keymaps.comment.send_comment,
+      function(input)
+        task.run(function()
+          submit_pending_review(review, event, input)
+        end)
+      end
+    )
+  end)
+end
+
+function M.discard_review()
+  return task.run(function()
+    local selected_pr = pr_utils.get_selected_pr()
+    if selected_pr == nil then
+      ui.notify('No PR selected to review', vim.log.levels.ERROR)
+      return
+    end
+
+    local review = pr_utils.active_pending_review(selected_pr.number)
+    if review == nil then
+      ui.notify('No review started.', vim.log.levels.WARN)
+      return
+    end
+
+    ui.notify('Review discard started...')
+    if not gh.discard_review(review) then
+      ui.notify('Failed to discard review.', vim.log.levels.ERROR)
+      return
+    end
+    state.pending_review = nil
+    ui.notify('Review discarded.')
+  end)
+end
+
 function M.approve_pr()
   return task.run(function()
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to approve', vim.log.levels.ERROR)
+      return
+    end
+
+    local review = pr_utils.active_pending_review(selected_pr.number)
+    if review ~= nil then
+      submit_pending_review(review, 'APPROVE')
       return
     end
 
@@ -807,6 +920,7 @@ function M.request_changes_pr()
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to request changes', vim.log.levels.ERROR)
+      return
     end
 
     ui.schedule()
@@ -822,6 +936,12 @@ function M.request_changes_pr()
       config.s.keymaps.comment.send_comment,
       function(input)
         task.run(function()
+          local review = pr_utils.active_pending_review(selected_pr.number)
+          if review ~= nil then
+            submit_pending_review(review, 'REQUEST_CHANGES', input)
+            return
+          end
+
           ui.notify('PR request changes started...')
           gh.request_changes_pr(selected_pr.number, input)
           ui.notify('PR request changes finished.')
