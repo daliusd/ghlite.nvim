@@ -29,6 +29,28 @@ function M.convert_comment(comment)
   }
 end
 
+--- Convert a comment node returned by a pending-review mutation. GraphQL reports
+--- neither position nor the lines the comment was placed on, so the caller passes the
+--- lines it asked for and the comment is never outdated - it was just created.
+--- @param node table GraphQL PullRequestReviewComment node
+--- @param start_line number
+--- @param line number
+--- @return Comment
+function M.convert_pending_comment(node, start_line, line)
+  return {
+    id = node.databaseId,
+    url = node.url,
+    path = node.path,
+    line = line,
+    start_line = start_line,
+    outdated = false,
+    user = node.author and node.author.login or '',
+    body = node.body,
+    updated_at = node.updatedAt,
+    diff_hunk = node.diffHunk or '',
+  }
+end
+
 --- @param comment Comment
 local function format_comment(comment)
   return string.format(

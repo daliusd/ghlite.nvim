@@ -27,6 +27,13 @@
 --- @field thread_id? string
 --- @field resolved boolean
 
+--- A review that exists on GitHub but has not been submitted yet. Comments added
+--- while it is open stay invisible to everyone else until the review is submitted.
+--- @class PendingReview
+--- @field id number REST review id, used to submit and discard
+--- @field node_id string GraphQL review id, used to attach comments
+--- @field pr_number number PR the review belongs to
+
 --- @class FileNameAndLinePair
 --- @field [1] string filename
 --- @field [2] number line

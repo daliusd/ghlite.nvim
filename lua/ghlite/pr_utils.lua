@@ -30,6 +30,18 @@ function M.get_selected_pr(silent)
   return nil
 end
 
+--- Pending review open for the given PR, if any. Selecting another PR leaves the
+--- stored review in place, so the PR number is checked rather than trusted.
+--- @param pr_number number
+--- @return PendingReview|nil
+function M.active_pending_review(pr_number)
+  local review = state.pending_review
+  if review ~= nil and review.pr_number == pr_number then
+    return review
+  end
+  return nil
+end
+
 --- @async
 --- @return PullRequest|nil pr checked out pr or nil if user does not approve check out
 --- @return string|nil reason 'declined' when the user rejects the check out
