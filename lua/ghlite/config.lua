@@ -8,6 +8,7 @@ M.s = {
   comment_split = 'split',
   comment_hunk = true,
   open_command = 'open',
+  refresh_interval = 0, -- seconds between background refreshes of PR list, PR view and comments; 0 disables
   merge = {
     approved = '--squash',
     nonapproved = '--auto --squash',

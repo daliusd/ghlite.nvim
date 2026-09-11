@@ -8,6 +8,9 @@ M.selected_PR = nil
 --- @type table<string, GroupedComment[]>
 M.comments_list = {}
 
+--- @type number|nil PR whose comments `comments_list` holds
+M.comments_pr_number = nil
+
 --- @type table<number, PendingReview> keyed by PR number
 M.pending_reviews = {}
 

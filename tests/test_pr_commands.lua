@@ -358,4 +358,156 @@ T['approve_pr ignores a pending review left over from another PR'] = function()
   state.pending_reviews = {}
 end
 
+local function pr_info_stub(title)
+  return {
+    number = 12,
+    title = title,
+    author = { login = 'alice' },
+    createdAt = '2025-01-01',
+    url = 'https://github.test/pr/12',
+    headRefName = 'feature',
+    changedFiles = 0,
+    labels = {},
+    reviews = {},
+    body = 'line one\nline two\nline three',
+    commits = {},
+    statusCheckRollup = {},
+    comments = {},
+  }
+end
+
+T['refresh_buffer redraws the PR view in place and keeps cursor and focus'] = function()
+  local async = require('async')
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12, headRefName = 'feature' }
+  state.comments_list = {}
+
+  local title = 'Before'
+  local view_buf, view_win, other_win
+  with_overrides({
+    ['ghlite.comments'] = {
+      load_comments_only = function() end,
+    },
+    ['ghlite.gh'] = {
+      get_pr_info = function()
+        return pr_info_stub(title)
+      end,
+      get_changed_files = function()
+        return {}
+      end,
+    },
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.utils'] = {
+      get_current_git_branch_name = function()
+        return 'feature'
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+      schedule = function() end,
+    },
+  }, function()
+    pr_commands.load_pr_view():wait(1000)
+    view_buf = vim.api.nvim_get_current_buf()
+    view_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_cursor(view_win, { 3, 2 })
+
+    vim.cmd('new')
+    other_win = vim.api.nvim_get_current_win()
+
+    title = 'After'
+    async
+      .run(function()
+        return pr_commands.refresh_buffer(view_buf)
+      end)
+      :wait(1000)
+  end)
+
+  expect.equality(vim.api.nvim_buf_get_lines(view_buf, 0, 1, false), { '#12 After' })
+  expect.equality(vim.api.nvim_win_get_cursor(view_win), { 3, 2 })
+  expect.equality(vim.api.nvim_get_current_win(), other_win)
+  -- Same buffer is the one :GHLitePRView reopens; no duplicates pile up per reload.
+  with_overrides({
+    ['ghlite.comments'] = { load_comments_only = function() end },
+    ['ghlite.gh'] = {
+      get_pr_info = function()
+        return pr_info_stub(title)
+      end,
+      get_changed_files = function()
+        return {}
+      end,
+    },
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.utils'] = {
+      get_current_git_branch_name = function()
+        return 'feature'
+      end,
+    },
+    ['ghlite.ui'] = { notify = function() end, schedule = function() end },
+  }, function()
+    pr_commands.load_pr_view():wait(1000)
+  end)
+  expect.equality(vim.api.nvim_get_current_buf(), view_buf)
+  expect.equality(vim.api.nvim_get_current_win(), view_win)
+end
+
+T['refresh_buffer updates the PR list without stealing focus'] = function()
+  local async = require('async')
+  local pr_commands = require('ghlite.pr_commands')
+
+  local prs = {}
+  local list_buf, other_win, refreshed
+  with_overrides({
+    ['ghlite.gh'] = {
+      get_pr_list = function()
+        return prs
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+      schedule = function() end,
+    },
+  }, function()
+    pr_commands.list():wait(1000)
+    list_buf = vim.api.nvim_get_current_buf()
+    vim.cmd('new')
+    other_win = vim.api.nvim_get_current_win()
+
+    prs = {
+      {
+        number = 7,
+        title = 'Fresh PR',
+        author = { login = 'bob' },
+        createdAt = '2025-01-01T00:00:00Z',
+        updatedAt = '2025-01-02T00:00:00Z',
+        labels = {},
+        headRefName = 'x',
+      },
+    }
+    refreshed = async
+      .run(function()
+        return pr_commands.refresh_buffer(list_buf)
+      end)
+      :wait(1000)
+  end)
+
+  expect.equality(refreshed, nil)
+  expect.equality(vim.api.nvim_get_current_win(), other_win)
+  expect.equality(
+    vim.tbl_contains(vim.api.nvim_buf_get_lines(list_buf, 0, -1, false), function(line)
+      return line:find('Fresh PR', 1, true) ~= nil
+    end, { predicate = true }),
+    true
+  )
+end
+
 return T

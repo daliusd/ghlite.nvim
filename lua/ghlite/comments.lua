@@ -63,7 +63,7 @@ M.load_comments = function()
     end
 
     ui.notify('Comment loading started...')
-    state.comments_list = gh.load_comments(checked_out_pr.number, pr_utils.active_pending_review(checked_out_pr.number))
+    M.load_comments_only(checked_out_pr.number)
     ui.schedule()
     load_comments_to_quickfix_list()
 
@@ -75,12 +75,21 @@ end
 --- @async
 M.load_comments_only = function(pr_to_load)
   state.comments_list = gh.load_comments(pr_to_load, pr_utils.active_pending_review(pr_to_load))
+  state.comments_pr_number = pr_to_load
 end
 
 M.load_comments_on_current_buffer = function()
   vim.schedule(function()
     local current_buffer = vim.api.nvim_get_current_buf()
     M.load_comments_on_buffer(current_buffer)
+  end)
+end
+
+M.load_comments_on_visible_buffers = function()
+  vim.schedule(function()
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      M.load_comments_on_buffer(vim.api.nvim_win_get_buf(win))
+    end
   end)
 end
 

@@ -20,9 +20,48 @@ local pr_view_loading = {}
 local pr_view_commits_by_buffer = {}
 --- Per PR view buffer: PR/review comment body lines -> comment and optional review thread.
 local pr_view_comments_by_buffer = {}
+--- @type table<integer, integer> PR number -> its view buffer, reused across reloads
+local pr_view_buffer_by_pr = {}
 
 --- @type async fun()
 local load_pr_view
+
+--- Replace the buffer contents, keeping each window's cursor. A no-op when nothing
+--- changed so background refreshes never disturb the view.
+--- @param buf integer
+--- @param lines string[]
+local function write_buffer_lines(buf, lines)
+  if vim.deep_equal(vim.api.nvim_buf_get_lines(buf, 0, -1, false), lines) then
+    return
+  end
+  local cursors = {}
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    cursors[win] = vim.api.nvim_win_get_cursor(win)
+  end
+  vim.bo[buf].readonly = false
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].readonly = true
+  vim.bo[buf].modifiable = false
+  for win, cursor in pairs(cursors) do
+    cursor[1] = math.min(cursor[1], #lines)
+    pcall(vim.api.nvim_win_set_cursor, win, cursor)
+  end
+end
+
+--- Jump to a window already showing `buf`, otherwise open one per `view_split`.
+--- @param buf integer
+local function focus_buffer(buf)
+  local win = vim.fn.bufwinid(buf)
+  if win ~= -1 then
+    vim.api.nvim_set_current_win(win)
+    return
+  end
+  if not utils.is_empty(config.s.view_split) then
+    vim.api.nvim_command(config.s.view_split)
+  end
+  vim.api.nvim_set_current_buf(buf)
+end
 
 --- @async
 --- @return PullRequest|nil
@@ -221,44 +260,43 @@ function M.checkout_pr_in_view(pr_number)
   end)
 end
 
-function M.list()
-  return task.run(function()
+--- @async
+--- @param background boolean|nil update the existing list without focusing it
+local function show_pr_list(background)
+  if not background then
     ui.notify('Loading PR list...')
-    local prs = gh.get_pr_list()
+  end
+  local prs = gh.get_pr_list()
 
-    ui.schedule()
-    local buf = get_pr_list_buffer()
-    local list_win = vim.fn.bufwinid(buf)
-    if list_win ~= -1 then
-      vim.api.nvim_set_current_win(list_win)
-    else
-      if not utils.is_empty(config.s.view_split) then
-        vim.api.nvim_command(config.s.view_split)
+  ui.schedule()
+  if background and (pr_list_buffer == nil or not vim.api.nvim_buf_is_valid(pr_list_buffer)) then
+    return
+  end
+  local buf = get_pr_list_buffer()
+
+  local lines = { 'Pull requests', '', 'cs/<CR>: open   co: checkout and open   r: refresh   q: close', '' }
+  local prs_by_line = {}
+  if #prs == 0 then
+    table.insert(lines, 'No open pull requests found.')
+  else
+    for _, pr in ipairs(prs) do
+      for _, line in ipairs(format_pr_list_item(pr)) do
+        table.insert(lines, line)
+        prs_by_line[#lines] = pr
       end
-      vim.api.nvim_set_current_buf(buf)
+      table.insert(lines, '')
     end
+  end
 
-    local lines = { 'Pull requests', '', 'cs/<CR>: open   co: checkout and open   r: refresh   q: close', '' }
-    local prs_by_line = {}
-    if #prs == 0 then
-      table.insert(lines, 'No open pull requests found.')
-    else
-      for _, pr in ipairs(prs) do
-        for _, line in ipairs(format_pr_list_item(pr)) do
-          table.insert(lines, line)
-          prs_by_line[#lines] = pr
-        end
-        table.insert(lines, '')
-      end
-    end
+  pr_list_by_buffer[buf] = prs_by_line
+  write_buffer_lines(buf, lines)
+  if not background then
+    focus_buffer(buf)
+  end
+end
 
-    pr_list_by_buffer[buf] = prs_by_line
-    vim.bo[buf].readonly = false
-    vim.bo[buf].modifiable = true
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.bo[buf].readonly = true
-    vim.bo[buf].modifiable = false
-  end)
+function M.list()
+  return task.run(show_pr_list)
 end
 
 function M.checkout()
@@ -443,19 +481,86 @@ local function format_changed_files(changed_files, total)
   return lines
 end
 
---- @async
-local function show_pr_info(pr_info)
-  if pr_info == nil then
-    ui.notify('PR view load failed', vim.log.levels.ERROR)
-    return
+--- @param buf integer
+--- @param pr_number integer
+--- @param is_checked_out boolean
+local function set_pr_view_keymaps(buf, pr_number, is_checked_out)
+  local function map(key, callback)
+    if not utils.is_empty(key) then
+      vim.api.nvim_buf_set_keymap(buf, 'n', key, '', { noremap = true, silent = true, callback = callback })
+    end
   end
 
-  local changed_files = gh.get_changed_files(pr_info.number)
-  local current_branch = utils.get_current_git_branch_name()
-  local is_checked_out = pr_info.headRefName ~= nil and pr_info.headRefName == current_branch
-  comments.load_comments_only(pr_info.number)
+  map(config.s.keymaps.pr.approve, M.approve_pr)
+  map(config.s.keymaps.pr.request_changes, M.request_changes_pr)
+  map(config.s.keymaps.pr.merge, M.merge_pr)
+  map(config.s.keymaps.pr.comment, function()
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local comment = pr_view_comments_by_buffer[buf][line]
+    if comment ~= nil then
+      M.comment_on_pr(M.load_pr_view, comment.group, comment.comment)
+    else
+      M.comment_on_pr(M.load_pr_view)
+    end
+  end)
+  local function set_thread_resolution(resolved)
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local entry = pr_view_comments_by_buffer[buf][line]
+    if entry == nil or entry.group == nil then
+      ui.notify('No review comment thread found on this line.', vim.log.levels.WARN)
+      return
+    end
+    comments.set_conversation_resolved(entry.group, resolved, M.load_pr_view)
+  end
+  map(config.s.keymaps.comment.resolve, function()
+    set_thread_resolution(true)
+  end)
+  map(config.s.keymaps.comment.unresolve, function()
+    set_thread_resolution(false)
+  end)
+  if not utils.is_empty(config.s.keymaps.pr.diff) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>', {
+      noremap = true,
+      silent = true,
+    })
+  end
+  if not utils.is_empty(config.s.keymaps.pr.diffview) then
+    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diffview, ':GHLitePRDiffview<cr>', {
+      noremap = true,
+      silent = true,
+    })
+  end
+  -- A refresh may find the PR checked out since the view was opened.
+  if not utils.is_empty(config.s.keymaps.pr.checkout) then
+    if is_checked_out then
+      pcall(vim.api.nvim_buf_del_keymap, buf, 'n', config.s.keymaps.pr.checkout)
+    else
+      map(config.s.keymaps.pr.checkout, function()
+        M.checkout_pr_in_view(pr_number)
+      end)
+    end
+  end
+  map(config.s.keymaps.pr.refresh, M.load_pr_view)
+  for _, entry in ipairs(config.s.pr_commands or {}) do
+    map(entry.key, function()
+      run_pr_command(pr_number, entry)
+    end)
+  end
 
-  ui.schedule()
+  local function open_commit_under_cursor()
+    M.open_commit_under_cursor(buf)
+  end
+  map(config.s.keymaps.pr.open_commit, open_commit_under_cursor)
+  map('<CR>', open_commit_under_cursor)
+end
+
+--- @param pr_info table
+--- @param changed_files table|nil
+--- @param is_checked_out boolean
+--- @return string[] lines
+--- @return table<integer, integer> commit_index_by_line
+--- @return table<integer, table> comments_by_line
+local function render_pr_view(pr_info, changed_files, is_checked_out)
   local pr_view = {
     string.format('#%d %s', pr_info.number, pr_info.title),
     string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
@@ -515,7 +620,7 @@ local function show_pr_info(pr_info)
     table.insert(pr_view, line)
   end
 
-  local pr_comments_by_line = {}
+  local comments_by_line = {}
   if #pr_info.comments > 0 then
     table.insert(pr_view, '')
     table.insert(pr_view, '## Comments')
@@ -538,7 +643,7 @@ local function show_pr_info(pr_info)
 
       for _, line in ipairs(vim.split(comment_body, '\n')) do
         table.insert(pr_view, line)
-        pr_comments_by_line[#pr_view] = { comment = comment }
+        comments_by_line[#pr_view] = { comment = comment }
       end
       table.insert(pr_view, '')
     end
@@ -552,159 +657,94 @@ local function show_pr_info(pr_info)
     end
     table.insert(pr_view, '')
   end
+  for line, review_comment in pairs(review_comments_by_line) do
+    comments_by_line[review_section_offset + line] = review_comment
+  end
 
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_name(buf, 'PR View: ' .. pr_info.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')')
+  return pr_view, commit_index_by_buffer_line, comments_by_line
+end
 
-  vim.bo[buf].buftype = 'nofile'
-  vim.bo[buf].filetype = 'markdown'
+--- @param pr_number integer
+--- @return integer|nil
+local function get_pr_view_buffer(pr_number)
+  local buf = pr_view_buffer_by_pr[pr_number]
+  if buf ~= nil and vim.api.nvim_buf_is_valid(buf) then
+    return buf
+  end
+  return nil
+end
 
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, pr_view)
+--- @async
+--- @param pr_info table
+--- @param background boolean|nil update the existing view without focusing it
+local function show_pr_info(pr_info, background)
+  if pr_info == nil then
+    if not background then
+      ui.notify('PR view load failed', vim.log.levels.ERROR)
+    end
+    return
+  end
 
+  local changed_files = gh.get_changed_files(pr_info.number)
+  local current_branch = utils.get_current_git_branch_name()
+  local is_checked_out = pr_info.headRefName ~= nil and pr_info.headRefName == current_branch
+  comments.load_comments_only(pr_info.number)
+
+  ui.schedule()
+  local lines, commit_index_by_line, comments_by_line = render_pr_view(pr_info, changed_files, is_checked_out)
+
+  local buf = get_pr_view_buffer(pr_info.number)
+  if buf == nil then
+    if background then
+      return
+    end
+    buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buf, 'PR View: ' .. pr_info.number)
+    vim.bo[buf].buftype = 'nofile'
+    vim.bo[buf].filetype = 'markdown'
+    pr_view_buffer_by_pr[pr_info.number] = buf
+  end
+
+  write_buffer_lines(buf, lines)
   pr_view_commits_by_buffer[buf] = {
     pr_number = pr_info.number,
     commits = pr_info.commits or {},
-    index_by_line = commit_index_by_buffer_line,
+    index_by_line = commit_index_by_line,
   }
-  pr_view_comments_by_buffer[buf] = pr_comments_by_line
-  for line, review_comment in pairs(review_comments_by_line) do
-    pr_view_comments_by_buffer[buf][review_section_offset + line] = review_comment
-  end
+  pr_view_comments_by_buffer[buf] = comments_by_line
+  set_pr_view_keymaps(buf, pr_info.number, is_checked_out)
 
-  if config.s.view_split then
-    vim.api.nvim_command(config.s.view_split)
+  if not background then
+    focus_buffer(buf)
+    ui.notify('PR view loaded.')
   end
-  vim.api.nvim_set_current_buf(buf)
+end
 
-  vim.bo[buf].readonly = true
-  vim.bo[buf].modifiable = false
-
-  if not utils.is_empty(config.s.keymaps.pr.approve) then
-    vim.api.nvim_buf_set_keymap(
-      buf,
-      'n',
-      config.s.keymaps.pr.approve,
-      '',
-      { noremap = true, silent = true, callback = M.approve_pr }
-    )
-  end
-  if not utils.is_empty(config.s.keymaps.pr.request_changes) then
-    vim.api.nvim_buf_set_keymap(
-      buf,
-      'n',
-      config.s.keymaps.pr.request_changes,
-      '',
-      { noremap = true, silent = true, callback = M.request_changes_pr }
-    )
-  end
-  if not utils.is_empty(config.s.keymaps.pr.merge) then
-    vim.api.nvim_buf_set_keymap(
-      buf,
-      'n',
-      config.s.keymaps.pr.merge,
-      '',
-      { noremap = true, silent = true, callback = M.merge_pr }
-    )
-  end
-  if not utils.is_empty(config.s.keymaps.pr.comment) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.comment, '', {
-      noremap = true,
-      silent = true,
-      callback = function()
-        local line = vim.api.nvim_win_get_cursor(0)[1]
-        local comment = pr_view_comments_by_buffer[buf][line]
-        if comment ~= nil then
-          M.comment_on_pr(M.load_pr_view, comment.group, comment.comment)
-        else
-          M.comment_on_pr(M.load_pr_view)
-        end
-      end,
-    })
-  end
-  local function set_thread_resolution(resolved)
-    local line = vim.api.nvim_win_get_cursor(0)[1]
-    local entry = pr_view_comments_by_buffer[buf][line]
-    if entry == nil or entry.group == nil then
-      ui.notify('No review comment thread found on this line.', vim.log.levels.WARN)
-      return
+--- @async
+--- @param pr_number integer
+--- @param background boolean|nil
+local function show_pr(pr_number, background)
+  if pr_view_loading[pr_number] then
+    if not background then
+      ui.notify(string.format('PR #%d is already loading...', pr_number), vim.log.levels.WARN)
     end
-    comments.set_conversation_resolved(entry.group, resolved, M.load_pr_view)
+    return
   end
-  if not utils.is_empty(config.s.keymaps.comment.resolve) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.resolve, '', {
-      noremap = true,
-      silent = true,
-      callback = function()
-        set_thread_resolution(true)
-      end,
-    })
-  end
-  if not utils.is_empty(config.s.keymaps.comment.unresolve) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.comment.unresolve, '', {
-      noremap = true,
-      silent = true,
-      callback = function()
-        set_thread_resolution(false)
-      end,
-    })
-  end
-  if not utils.is_empty(config.s.keymaps.pr.diff) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diff, ':GHLitePRDiff<cr>', {
-      noremap = true,
-      silent = true,
-    })
-  end
-  if not utils.is_empty(config.s.keymaps.pr.diffview) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.diffview, ':GHLitePRDiffview<cr>', {
-      noremap = true,
-      silent = true,
-    })
-  end
-  if not is_checked_out and not utils.is_empty(config.s.keymaps.pr.checkout) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.checkout, '', {
-      noremap = true,
-      silent = true,
-      callback = function()
-        M.checkout_pr_in_view(pr_info.number)
-      end,
-    })
-  end
-  if not utils.is_empty(config.s.keymaps.pr.refresh) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.refresh, '', {
-      noremap = true,
-      silent = true,
-      callback = M.load_pr_view,
-    })
-  end
-  for _, entry in ipairs(config.s.pr_commands or {}) do
-    if not utils.is_empty(entry.key) then
-      vim.api.nvim_buf_set_keymap(buf, 'n', entry.key, '', {
-        noremap = true,
-        silent = true,
-        callback = function()
-          run_pr_command(pr_info.number, entry)
-        end,
-      })
-    end
+  pr_view_loading[pr_number] = true
+
+  if not background then
+    ui.notify('PR view loading started...')
   end
 
-  local function open_commit_under_cursor()
-    M.open_commit_under_cursor(buf)
-  end
-  if not utils.is_empty(config.s.keymaps.pr.open_commit) then
-    vim.api.nvim_buf_set_keymap(buf, 'n', config.s.keymaps.pr.open_commit, '', {
-      noremap = true,
-      silent = true,
-      callback = open_commit_under_cursor,
-    })
-  end
-  vim.api.nvim_buf_set_keymap(buf, 'n', '<CR>', '', {
-    noremap = true,
-    silent = true,
-    callback = open_commit_under_cursor,
-  })
+  local ok, err = pcall(function()
+    show_pr_info(gh.get_pr_info(pr_number), background)
+  end)
 
-  ui.notify('PR view loaded.')
+  pr_view_loading[pr_number] = nil
+
+  if not ok then
+    error(err, 0)
+  end
 end
 
 --- @async
@@ -714,28 +754,28 @@ load_pr_view = function()
     ui.notify('No PR selected/checked out', vim.log.levels.WARN)
     return
   end
-
-  if pr_view_loading[selected_pr.number] then
-    ui.notify(string.format('PR #%d is already loading...', selected_pr.number), vim.log.levels.WARN)
-    return
-  end
-  pr_view_loading[selected_pr.number] = true
-
-  ui.notify('PR view loading started...')
-
-  local ok, err = pcall(function()
-    show_pr_info(gh.get_pr_info(selected_pr.number))
-  end)
-
-  pr_view_loading[selected_pr.number] = nil
-
-  if not ok then
-    error(err, 0)
-  end
+  show_pr(selected_pr.number)
 end
 
 function M.load_pr_view()
   return task.run(load_pr_view)
+end
+
+--- Re-fetch the PR list or PR view shown in `buf` without notifications or focus.
+--- @async
+--- @param buf integer
+--- @return integer|nil pr_number PR whose comments were reloaded along the way
+function M.refresh_buffer(buf)
+  if buf == pr_list_buffer then
+    show_pr_list(true)
+    return nil
+  end
+  local view = pr_view_commits_by_buffer[buf]
+  if view ~= nil then
+    show_pr(view.pr_number, true)
+    return view.pr_number
+  end
+  return nil
 end
 
 M.comment_on_pr = function(on_success, comment_group, comment)
