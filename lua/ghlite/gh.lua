@@ -1,6 +1,7 @@
 local comments_utils = require('ghlite.comments_utils')
 local config = require('ghlite.config')
 local system = require('ghlite.system')
+local ui = require('ghlite.ui')
 local utils = require('ghlite.utils')
 
 require('ghlite.types')
@@ -122,6 +123,62 @@ function M.get_commit_checks(sha)
   return resp.check_runs
 end
 
+--- Last review-comments response body per PR with the ETag it was served under.
+--- A poll that returns 304 costs no rate limit; the cached body is parsed again.
+--- @type table<number, { etag: string, body: string }>
+local comments_cache = {}
+
+--- Split `gh api -i` output into status code, headers and body.
+--- @param output string
+--- @return integer|nil status
+--- @return table<string, string> headers lower-cased names
+--- @return string body
+local function parse_http_response(output)
+  local header_end = output:find('\r?\n\r?\n')
+  if header_end == nil then
+    return nil, {}, output
+  end
+  local head = output:sub(1, header_end - 1)
+  local body = output:sub(header_end):gsub('^\r?\n\r?\n', '')
+
+  local status = tonumber(head:match('^HTTP/[%d.]+ (%d+)'))
+  local headers = {}
+  for name, value in head:gmatch('\r?\n([^:\r\n]+):%s*([^\r\n]*)') do
+    headers[name:lower()] = value
+  end
+  return status, headers, body
+end
+
+--- @async
+--- @param repo string
+--- @param pr_number number
+--- @return table[] REST review comments
+local function fetch_review_comments(repo, pr_number)
+  local request = { 'gh', 'api', '-i', f('repos/%s/pulls/%d/comments', repo, pr_number) }
+  local cached = comments_cache[pr_number]
+  if cached ~= nil then
+    table.insert(request, 3, '-H')
+    table.insert(request, 4, 'If-None-Match: ' .. cached.etag)
+  end
+
+  local result = system.run_result(request)
+  local status, headers, body = parse_http_response(result.stdout)
+  config.log('review comments status', status)
+
+  if status == 304 and cached ~= nil then
+    return parse_or_default(cached.body, {})
+  end
+  if status ~= 200 then
+    -- gh exits non-zero for every non-2xx status, so its stderr is the only error text.
+    ui.notify(result.stderr, vim.log.levels.ERROR)
+    return {}
+  end
+  if headers.etag ~= nil then
+    comments_cache[pr_number] = { etag = headers.etag, body = body }
+  end
+  return parse_or_default(body, {})
+end
+
 --- @async
 --- @param pr_number number
 --- @param pending_review PendingReview|nil include the comments held in this review
@@ -129,8 +186,7 @@ end
 function M.load_comments(pr_number, pending_review)
   local repo = get_repo()
   config.log('repo', repo)
-  local comments_json = system.run_str(f('gh api repos/%s/pulls/%d/comments', repo, pr_number))
-  local comments = parse_or_default(comments_json, {})
+  local comments = fetch_review_comments(repo, pr_number)
   config.log('comments', comments)
 
   local function is_valid_comment(comment)

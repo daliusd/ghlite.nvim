@@ -41,6 +41,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         comment_hunk = true, -- show GitHub diff hunks in loaded PR comment diagnostics and quickfix entries
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
+        refresh_interval = 0, -- seconds between background refreshes of the PR list, PR view and loaded comments; 0 disables
         merge = {
           approved = '--squash',
           nonapproved = '--auto --squash',
@@ -187,6 +188,15 @@ replies you add afterwards are held in a pending review that nobody else can see
 `:GHLitePRApprove`, `:GHLitePRRequestChanges` or `:GHLitePRSubmitReview` publish all of
 them at once. `:GHLitePRDiscardReview` throws the pending review away.
 
+## Background refresh
+
+With `refresh_interval` set, ghlite periodically re-fetches whatever is visible in the
+current tab: the PR list, PR views, and the diagnostics of comments loaded with
+`GHLitePRLoadComments` or shown in a PR view. Buffers are only redrawn when the data
+changed and the cursor stays put. Comment polling uses conditional requests, so an
+unchanged response does not count against the GitHub rate limit; the PR list and PR
+view go through `gh pr list`/`gh pr view` and cost one request per refresh.
+
 ## Commands
 
 ### GHLitePRList
@@ -211,7 +221,8 @@ This command shows selection of active PRs and checkouts selected PR.
 
 ### GHLitePRView
 
-This command shows PR information (wrapper for `gh pr view`).
+This command shows PR information (wrapper for `gh pr view`). Each PR has one view
+buffer; running the command again reloads it in place.
 
 Supported key bindings:
 

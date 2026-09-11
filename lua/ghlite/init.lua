@@ -3,6 +3,7 @@ local commit_commands = require('ghlite.commit_commands')
 local config = require('ghlite.config')
 local diff = require('ghlite.diff')
 local pr_commands = require('ghlite.pr_commands')
+local refresh = require('ghlite.refresh')
 
 local M = {}
 
@@ -46,6 +47,8 @@ M.setup = function(user_config)
       comments.load_comments_on_buffer(args.buf)
     end,
   })
+
+  refresh.setup()
 end
 
 return M

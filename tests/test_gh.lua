@@ -321,24 +321,54 @@ T['get_pr_list returns empty list for invalid JSON response'] = function()
   expect.equality(result, {})
 end
 
-T['load_comments filters comments without a line before grouping'] = function()
-  local calls = {}
-  local grouped_input
+--- `gh api -i` output: status line, headers, blank line, body.
+local function http_response(status, etag, body)
+  return table.concat({
+    'HTTP/2.0 ' .. status,
+    'Content-Type: application/json',
+    'ETag: ' .. etag,
+    '',
+    body or '',
+  }, '\r\n')
+end
+
+--- Stub `gh repo view` (run_str), the review comments fetch (run_result) and the
+--- GraphQL thread status query (run). `responses` are consumed in order.
+local function reload_gh_for_comments(responses)
+  local api_calls = {}
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run_result = function(cmd)
+      table.insert(api_calls, cmd)
+      local response = table.remove(responses, 1)
+      return { stdout = response, stderr = response:match('^HTTP/2.0 2') and '' or 'gh: HTTP 304', code = 0 }
+    end,
+    run = function()
+      return '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false}}}}}}'
+    end,
+  })
+  return gh, restore, api_calls
+end
+
+local function capture_grouped_input()
   local comments_utils = require('ghlite.comments_utils')
-  local original_group_comments = comments_utils.group_comments
+  local original = comments_utils.group_comments
+  local captured = {}
   comments_utils.group_comments = function(comments)
-    grouped_input = comments
+    table.insert(captured, comments)
     return { grouped = true }
   end
+  return captured, function()
+    comments_utils.group_comments = original
+  end
+end
 
-  local gh, restore = reload_gh_with_system({
-    run_str = function(cmd)
-      table.insert(calls, cmd)
-      if #calls == 1 then
-        return 'owner/repo\n', ''
-      end
-      return '[{"id":1,"line":10},{"id":2,"line":null}]', ''
-    end,
+T['load_comments filters comments without a line before grouping'] = function()
+  local grouped, restore_grouping = capture_grouped_input()
+  local gh, restore, api_calls = reload_gh_for_comments({
+    http_response('200 OK', 'W/"a"', '[{"id":1,"line":10},{"id":2,"line":null}]'),
   })
 
   local result = async
@@ -347,35 +377,18 @@ T['load_comments filters comments without a line before grouping'] = function()
     end)
     :wait(1000)
   restore()
-  comments_utils.group_comments = original_group_comments
+  restore_grouping()
 
-  expect.equality(calls, {
-    'gh repo view --json nameWithOwner -q .nameWithOwner',
-    'gh api repos/owner/repo/pulls/12/comments',
-  })
-  expect.equality(#grouped_input, 1)
-  expect.equality(grouped_input[1].id, 1)
+  expect.equality(api_calls, { { 'gh', 'api', '-i', 'repos/owner/repo/pulls/12/comments' } })
+  expect.equality(#grouped[1], 1)
+  expect.equality(grouped[1][1].id, 1)
   expect.equality(result, { grouped = true })
 end
 
 T['load_comments keeps outdated comments that carry original_line but no line'] = function()
-  local calls = {}
-  local grouped_input
-  local comments_utils = require('ghlite.comments_utils')
-  local original_group_comments = comments_utils.group_comments
-  comments_utils.group_comments = function(comments)
-    grouped_input = comments
-    return { grouped = true }
-  end
-
-  local gh, restore = reload_gh_with_system({
-    run_str = function(cmd)
-      table.insert(calls, cmd)
-      if #calls == 1 then
-        return 'owner/repo\n', ''
-      end
-      return '[{"id":1,"line":10},{"id":2,"line":null,"original_line":7}]', ''
-    end,
+  local grouped, restore_grouping = capture_grouped_input()
+  local gh, restore = reload_gh_for_comments({
+    http_response('200 OK', 'W/"a"', '[{"id":1,"line":10},{"id":2,"line":null,"original_line":7}]'),
   })
 
   local result = async
@@ -384,11 +397,46 @@ T['load_comments keeps outdated comments that carry original_line but no line'] 
     end)
     :wait(1000)
   restore()
-  comments_utils.group_comments = original_group_comments
+  restore_grouping()
 
-  expect.equality(#grouped_input, 2)
-  expect.equality(grouped_input[2].id, 2)
+  expect.equality(#grouped[1], 2)
+  expect.equality(grouped[1][2].id, 2)
   expect.equality(result, { grouped = true })
+end
+
+T['load_comments revalidates with the ETag and reuses the body on 304'] = function()
+  local grouped, restore_grouping = capture_grouped_input()
+  local gh, restore, api_calls = reload_gh_for_comments({
+    http_response('200 OK', 'W/"first"', '[{"id":1,"line":10}]'),
+    http_response('304 Not Modified', 'W/"first"'),
+    http_response('200 OK', 'W/"second"', '[{"id":1,"line":10},{"id":3,"line":12}]'),
+  })
+
+  async
+    .run(function()
+      gh.load_comments(12)
+      gh.load_comments(12)
+      gh.load_comments(12)
+    end)
+    :wait(1000)
+  restore()
+  restore_grouping()
+
+  expect.equality(api_calls[2], {
+    'gh',
+    'api',
+    '-H',
+    'If-None-Match: W/"first"',
+    '-i',
+    'repos/owner/repo/pulls/12/comments',
+  })
+  expect.equality(api_calls[3][4], 'If-None-Match: W/"first"')
+  expect.equality(
+    vim.tbl_map(function(c)
+      return #c
+    end, grouped),
+    { 1, 1, 2 }
+  )
 end
 
 T['new_comment builds gh api request with start_line for ranges'] = function()
