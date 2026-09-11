@@ -8,6 +8,9 @@ M.selected_PR = nil
 --- @type table<string, GroupedComment[]>
 M.comments_list = {}
 
+--- @type table<number, PendingReview> keyed by PR number
+M.pending_reviews = {}
+
 --- @type integer|nil Diff view buffer id
 M.diff_buffer_id = nil
 

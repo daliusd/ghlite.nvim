@@ -435,4 +435,188 @@ T['new_comment builds gh api request with start_line for ranges'] = function()
   expect.equality(response.id, 123)
 end
 
+--- Pair up the -f/-F flags of a `gh api` request so assertions do not depend on
+--- argument order or on the exact text of a GraphQL query.
+local function api_fields(request)
+  local fields = {}
+  for i = 1, #request - 1 do
+    if request[i] == '-f' or request[i] == '-F' then
+      local name, value = request[i + 1]:match('^([^=]+)=(.*)$')
+      fields[name] = value
+    end
+  end
+  return fields
+end
+
+T['get_pending_review picks the pending review and ignores submitted ones'] = function()
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      if cmd == 'gh repo view --json nameWithOwner -q .nameWithOwner' then
+        return 'owner/repo\n', ''
+      end
+      expect.equality(cmd, 'gh api repos/owner/repo/pulls/12/reviews')
+      return '[{"id":1,"node_id":"PRR_one","state":"APPROVED"},{"id":2,"node_id":"PRR_two","state":"PENDING"}]', ''
+    end,
+  })
+
+  local review = async
+    .run(function()
+      return gh.get_pending_review(12)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(review, { id = 2, node_id = 'PRR_two', pr_number = 12 })
+end
+
+T['get_pending_review returns nil when every review was submitted'] = function()
+  local gh, restore = reload_gh_with_system({
+    run_str = function(cmd)
+      if cmd == 'gh repo view --json nameWithOwner -q .nameWithOwner' then
+        return 'owner/repo\n', ''
+      end
+      return '[{"id":1,"node_id":"PRR_one","state":"COMMENTED"}]', ''
+    end,
+  })
+
+  local review = async
+    .run(function()
+      return gh.get_pending_review(12)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(review, nil)
+end
+
+T['new_pending_comment attaches the comment to the review without a start line'] = function()
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"data":{"addPullRequestReviewThread":{"thread":{"id":"PRRT_1","comments":{"nodes":[{"databaseId":9}]}}}}}'
+    end,
+  })
+
+  local thread = async
+    .run(function()
+      return gh.new_pending_comment({ id = 5, node_id = 'PRR_two', pr_number = 12 }, 'Body', 'lua/example.lua', 5, 5)
+    end)
+    :wait(1000)
+  restore()
+
+  local fields = api_fields(api_request)
+  expect.equality(api_request[3], 'graphql')
+  expect.equality(fields.query:match('addPullRequestReviewThread') ~= nil, true)
+  expect.equality(fields.query:match('pullRequestReviewId') ~= nil, true)
+  expect.equality(fields.reviewId, 'PRR_two')
+  expect.equality(fields.path, 'lua/example.lua')
+  expect.equality(fields.line, '5')
+  -- A single-line comment has no range to describe.
+  expect.equality(fields.startLine, nil)
+  expect.equality(fields.startSide, nil)
+  expect.equality(thread.id, 'PRRT_1')
+end
+
+T['new_pending_comment sends startLine and startSide for ranges'] = function()
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"data":{"addPullRequestReviewThread":{"thread":{"id":"PRRT_1","comments":{"nodes":[{"databaseId":9}]}}}}}'
+    end,
+  })
+
+  async
+    .run(function()
+      return gh.new_pending_comment({ id = 5, node_id = 'PRR_two', pr_number = 12 }, 'Body', 'lua/example.lua', 3, 5)
+    end)
+    :wait(1000)
+  restore()
+
+  local fields = api_fields(api_request)
+  expect.equality(fields.line, '5')
+  expect.equality(fields.startLine, '3')
+  expect.equality(fields.startSide, 'RIGHT')
+end
+
+T['new_pending_comment returns nil when GraphQL reports an error'] = function()
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function()
+      return '{"errors":[{"message":"pull_request_review_thread.line must be part of the diff"}]}'
+    end,
+  })
+
+  local thread = async
+    .run(function()
+      return gh.new_pending_comment({ id = 5, node_id = 'PRR_two', pr_number = 12 }, 'Body', 'a.lua', 5, 5)
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(thread, nil)
+end
+
+T['submit_review posts the event to the review and omits an empty body'] = function()
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"id":5,"state":"APPROVED"}'
+    end,
+  })
+
+  local resp = async
+    .run(function()
+      return gh.submit_review({ id = 5, node_id = 'PRR_two', pr_number = 12 }, 'APPROVE')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(api_request, {
+    'gh',
+    'api',
+    '--method',
+    'POST',
+    'repos/owner/repo/pulls/12/reviews/5/events',
+    '-f',
+    'event=APPROVE',
+  })
+  expect.equality(resp.state, 'APPROVED')
+end
+
+T['submit_review sends the body required by non-approving events'] = function()
+  local api_request
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function(cmd)
+      api_request = cmd
+      return '{"id":5,"state":"CHANGES_REQUESTED"}'
+    end,
+  })
+
+  async
+    .run(function()
+      return gh.submit_review({ id = 5, node_id = 'PRR_two', pr_number = 12 }, 'REQUEST_CHANGES', 'Please fix')
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(api_fields(api_request), { event = 'REQUEST_CHANGES', body = 'Please fix' })
+end
+
 return T

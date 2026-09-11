@@ -124,8 +124,9 @@ end
 
 --- @async
 --- @param pr_number number
+--- @param pending_review PendingReview|nil include the comments held in this review
 --- @return table<string, GroupedComment[]>
-function M.load_comments(pr_number)
+function M.load_comments(pr_number, pending_review)
   local repo = get_repo()
   config.log('repo', repo)
   local comments_json = system.run_str(f('gh api repos/%s/pulls/%d/comments', repo, pr_number))
@@ -139,6 +140,12 @@ function M.load_comments(pr_number)
   comments = utils.filter_array(comments, is_valid_comment)
   config.log('Valid comments count', #comments)
   config.log('comments', comments)
+
+  if pending_review ~= nil then
+    for _, comment in ipairs(M.get_pending_comments(pending_review)) do
+      table.insert(comments, comment)
+    end
+  end
 
   local thread_statuses = M.get_review_thread_statuses(pr_number, repo)
   local grouped_comments =
@@ -296,6 +303,238 @@ function M.new_comment(selected_pr, body, path, start_line, line)
   local resp = parse_or_default(result, { errors = {} })
   config.log('new_comment resp', resp)
   return resp
+end
+
+--- Pending reviews are created, submitted and discarded over REST, which keys them by
+--- PR number, while comments are attached over GraphQL, the only API that takes a review
+--- id together with file line numbers.
+
+--- @async
+--- @param pr_number number
+--- @return PendingReview|nil
+function M.get_pending_review(pr_number)
+  local repo = get_repo()
+  if repo == nil then
+    return nil
+  end
+
+  local resp = parse_or_default(system.run_str(f('gh api repos/%s/pulls/%d/reviews', repo, pr_number)), {})
+  for _, review in ipairs(resp) do
+    -- GitHub shows a pending review only to its author and allows one at a time.
+    if review.state == 'PENDING' then
+      return { id = review.id, node_id = review.node_id, pr_number = pr_number }
+    end
+  end
+  return nil
+end
+
+--- @async
+--- @param pr_number number
+--- @return PendingReview|nil
+function M.start_review(pr_number)
+  local repo = get_repo()
+  -- No event means the review stays pending.
+  local request = { 'gh', 'api', '--method', 'POST', f('repos/%s/pulls/%d/reviews', repo, pr_number) }
+  config.log('start_review request', request)
+
+  local resp = parse_or_default(system.run(request), {})
+  config.log('start_review resp', resp)
+  if resp.id == nil or resp.node_id == nil then
+    return nil
+  end
+  return { id = resp.id, node_id = resp.node_id, pr_number = pr_number }
+end
+
+--- Comments held in a pending review, which the PR comments listing omits.
+--- They carry no line, side or position, so the line is recovered from the diff hunk.
+--- @async
+--- @param review PendingReview
+--- @return table[] REST-shaped review comments
+function M.get_pending_comments(review)
+  local repo = get_repo()
+  if repo == nil then
+    return {}
+  end
+
+  local resp = parse_or_default(
+    system.run_str(f('gh api repos/%s/pulls/%d/reviews/%d/comments', repo, review.pr_number, review.id)),
+    {}
+  )
+  if type(resp) ~= 'table' or resp.message ~= nil then
+    config.log('get_pending_comments failed', resp)
+    return {}
+  end
+
+  local comments = {}
+  for _, comment in ipairs(resp) do
+    if comment.line == nil or comment.line == vim.NIL then
+      comment.line = comments_utils.line_from_diff_hunk(comment.diff_hunk)
+      comment.side = 'RIGHT'
+    end
+    comment.pending = true
+    if comment.line ~= nil then
+      table.insert(comments, comment)
+    end
+  end
+  config.log('pending comments count', #comments)
+  return comments
+end
+
+local pending_comment_fields = 'databaseId url body updatedAt path diffHunk author { login }'
+
+--- @async
+--- @param review PendingReview
+--- @param body string
+--- @param path string
+--- @param start_line number
+--- @param line number
+--- @return table|nil thread GraphQL thread node with its first comment
+function M.new_pending_comment(review, body, path, start_line, line)
+  local query = f(
+    [[mutation($reviewId: ID!, $path: String!, $body: String!, $line: Int!, $startLine: Int, $startSide: DiffSide) {
+    addPullRequestReviewThread(input: {
+      pullRequestReviewId: $reviewId,
+      path: $path,
+      body: $body,
+      line: $line,
+      side: RIGHT,
+      startLine: $startLine,
+      startSide: $startSide
+    }) {
+      thread { id isResolved comments(first: 1) { nodes { %s } } }
+    }
+  }]],
+    pending_comment_fields
+  )
+
+  local request = {
+    'gh',
+    'api',
+    'graphql',
+    '-f',
+    'query=' .. query,
+    '-f',
+    'reviewId=' .. review.node_id,
+    '-f',
+    'path=' .. path,
+    '-f',
+    'body=' .. body,
+    '-F',
+    'line=' .. line,
+  }
+
+  -- A single-line comment has no range, so startLine and startSide stay null.
+  if start_line ~= line then
+    table.insert(request, '-F')
+    table.insert(request, 'startLine=' .. start_line)
+    table.insert(request, '-f')
+    table.insert(request, 'startSide=RIGHT')
+  end
+
+  config.log('new_pending_comment request', request)
+  local resp = parse_or_default(system.run(request), {})
+  config.log('new_pending_comment resp', resp)
+
+  local result = type(resp.data) == 'table' and resp.data.addPullRequestReviewThread
+  if type(result) == 'table' and type(result.thread) == 'table' then
+    return result.thread
+  end
+  return nil
+end
+
+--- @async
+--- @param review PendingReview
+--- @param body string
+--- @param thread_id string GraphQL review-thread id
+--- @return table|nil comment GraphQL comment node
+function M.reply_to_pending_comment(review, body, thread_id)
+  local query = f(
+    [[mutation($reviewId: ID!, $threadId: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(input: {
+      pullRequestReviewId: $reviewId,
+      pullRequestReviewThreadId: $threadId,
+      body: $body
+    }) {
+      comment { %s }
+    }
+  }]],
+    pending_comment_fields
+  )
+
+  local request = {
+    'gh',
+    'api',
+    'graphql',
+    '-f',
+    'query=' .. query,
+    '-f',
+    'reviewId=' .. review.node_id,
+    '-f',
+    'threadId=' .. thread_id,
+    '-f',
+    'body=' .. body,
+  }
+  config.log('reply_to_pending_comment request', request)
+
+  local resp = parse_or_default(system.run(request), {})
+  config.log('reply_to_pending_comment resp', resp)
+
+  local result = type(resp.data) == 'table' and resp.data.addPullRequestReviewThreadReply
+  if type(result) == 'table' and type(result.comment) == 'table' then
+    return result.comment
+  end
+  return nil
+end
+
+--- @async
+--- @param review PendingReview
+--- @param event 'APPROVE'|'REQUEST_CHANGES'|'COMMENT'
+--- @param body string|nil required by GitHub for every event except APPROVE
+--- @return table|nil
+function M.submit_review(review, event, body)
+  local repo = get_repo()
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'POST',
+    f('repos/%s/pulls/%d/reviews/%d/events', repo, review.pr_number, review.id),
+    '-f',
+    'event=' .. event,
+  }
+
+  if body ~= nil and body ~= '' then
+    table.insert(request, '-f')
+    table.insert(request, 'body=' .. body)
+  end
+
+  config.log('submit_review request', request)
+  local resp = parse_or_default(system.run(request), {})
+  config.log('submit_review resp', resp)
+
+  if resp.id == nil then
+    return nil
+  end
+  return resp
+end
+
+--- @async
+--- @param review PendingReview
+--- @return boolean deleted
+function M.discard_review(review)
+  local repo = get_repo()
+  local request = {
+    'gh',
+    'api',
+    '--method',
+    'DELETE',
+    f('repos/%s/pulls/%d/reviews/%d', repo, review.pr_number, review.id),
+  }
+  config.log('discard_review request', request)
+
+  local resp = parse_or_default(system.run(request), {})
+  config.log('discard_review resp', resp)
+  return resp.id ~= nil
 end
 
 --- @async

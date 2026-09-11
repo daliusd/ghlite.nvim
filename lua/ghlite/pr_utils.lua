@@ -30,6 +30,12 @@ function M.get_selected_pr(silent)
   return nil
 end
 
+--- @param pr_number number
+--- @return PendingReview|nil
+function M.active_pending_review(pr_number)
+  return state.pending_reviews[pr_number]
+end
+
 --- @async
 --- @return PullRequest|nil pr checked out pr or nil if user does not approve check out
 --- @return string|nil reason 'declined' when the user rejects the check out

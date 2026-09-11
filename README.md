@@ -182,6 +182,11 @@ only at diff, but at surrounding code as well.
 - Run `:GHLitePRRequestChanges` to request changes on PR if something is wrong.
   you can use `cr` in diff and pr views.
 
+If you are leaving several comments, run `:GHLitePRStartReview` first. Comments and
+replies you add afterwards are held in a pending review that nobody else can see, and
+`:GHLitePRApprove`, `:GHLitePRRequestChanges` or `:GHLitePRSubmitReview` publish all of
+them at once. `:GHLitePRDiscardReview` throws the pending review away.
+
 ## Commands
 
 ### GHLitePRList
@@ -285,13 +290,32 @@ Plugin searches for html tag and only then passes comment through
 `html_comments_command`. You can disable this functionality by setting
 `html_comments_command` as `false`.
 
+### GHLitePRStartReview
+
+This command starts a pending review on the selected PR. While it is open,
+`GHLitePRAddComment` adds comments and replies to that review instead of posting them
+immediately, so the author is notified once instead of once per comment. GitHub allows
+a single pending review per PR, so a review left over from an earlier session or started
+in the web UI is adopted rather than replaced.
+
+### GHLitePRSubmitReview
+
+This command submits the pending review as `COMMENT`, `APPROVE` or `REQUEST_CHANGES`.
+GitHub requires a summary for everything except `APPROVE`, so you are asked for one.
+
+### GHLitePRDiscardReview
+
+This command deletes the pending review and the comments held in it.
+
 ### GHLitePRApprove
 
-This command approves selected PR.
+This command approves selected PR. When a pending review is open it is submitted as the
+approval, so the comments you collected are published with it.
 
 ### GHLitePRRequestChanges
 
-This command request changes on PR.
+This command request changes on PR. When a pending review is open it is submitted with
+the requested changes.
 
 ### GHLitePRMerge
 
@@ -310,6 +334,10 @@ This command loads PR comments. Only non-outdated review comments are loaded,
 PR comments are not loaded. Comments are loaded to quickfix list and to buffer
 diagnostics on buffer load. Navigate quickfix list using `cnext` and `cprev`
 (assumption here that you are using quickfix list in general).
+
+Comments held in a pending review are loaded too and marked `(pending)`. GitHub reports
+no line for them, so their position is derived from the diff hunk and the range of a
+multi-line pending comment is not known until it is submitted.
 
 NOTE: You must checkout git branch related to PR either using
 `:GHLitePRCheckout` or using other tools.

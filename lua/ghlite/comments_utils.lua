@@ -26,14 +26,66 @@ function M.convert_comment(comment)
     diff_hunk = comment.diff_hunk,
     commit_id = comment.commit_id,
     original_commit_id = comment.original_commit_id,
+    pending = comment.pending == true,
   }
+end
+
+--- Convert a comment node returned by a pending-review mutation. GraphQL reports
+--- neither position nor the lines the comment was placed on, so the caller passes the
+--- lines it asked for and the comment is never outdated - it was just created.
+--- @param node table GraphQL PullRequestReviewComment node
+--- @param start_line number
+--- @param line number
+--- @return Comment
+function M.convert_pending_comment(node, start_line, line)
+  return {
+    id = node.databaseId,
+    url = node.url,
+    path = node.path,
+    line = line,
+    start_line = start_line,
+    outdated = false,
+    user = node.author and node.author.login or '',
+    body = node.body,
+    updated_at = node.updatedAt,
+    diff_hunk = node.diffHunk or '',
+    pending = true,
+  }
+end
+
+--- Derive the file line a comment sits on from its diff hunk. Pending review comments
+--- report no line, side or position, but their hunk always ends at the commented line,
+--- so the new-file line count over the hunk body gives it back.
+--- @param diff_hunk string|nil
+--- @return number|nil
+function M.line_from_diff_hunk(diff_hunk)
+  if type(diff_hunk) ~= 'string' then
+    return nil
+  end
+
+  local new_start = diff_hunk:match('^@@ %-%d+,?%d* %+(%d+)')
+  if new_start == nil then
+    return nil
+  end
+
+  local line = tonumber(new_start) - 1
+  local first = true
+  for hunk_line in (diff_hunk .. '\n'):gmatch('([^\n]*)\n') do
+    if first then
+      first = false
+    elseif hunk_line:sub(1, 1) ~= '-' then
+      line = line + 1
+    end
+  end
+  return line
 end
 
 --- @param comment Comment
 local function format_comment(comment)
   return string.format(
-    '✍️ %s at %s:\n%s\n\n',
+    '✍️ %s%s at %s:\n%s\n\n',
     comment.user,
+    comment.pending and ' (pending)' or '',
     comment.updated_at,
     string.gsub(comment.body, '\r', '')
   )
@@ -77,7 +129,8 @@ function M.group_comments(gh_comments, opts, thread_statuses)
   local base = {}
 
   for _, comment in pairs(gh_comments) do
-    if comment.in_reply_to_id == nil then
+    -- Pending comments report in_reply_to_id as null rather than omitting it.
+    if is_null(comment.in_reply_to_id) then
       comment_groups[comment.id] = { M.convert_comment(comment) }
       base[comment.id] = comment.id
     else
