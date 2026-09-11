@@ -217,27 +217,4 @@ T['group_comments falls back to original_line for outdated comments'] = function
   expect.equality(result['/repo/lua/example.lua'][1].outdated, true)
 end
 
-T['line_from_diff_hunk counts the new-file line the hunk ends on'] = function()
-  local comments_utils = require('ghlite.comments_utils')
-
-  -- Real hunk from a pending comment placed on line 8: deletions do not advance the
-  -- new-file line, additions and context lines do.
-  local hunk = table.concat({
-    '@@ -2,6 +2,18 @@ local M = {}',
-    ' ',
-    ' function M.add(a, b)',
-    '   return a + b',
-    '- end',
-    '+end',
-    '+',
-    '+function M.sub(a, b)',
-    '+  return a - b',
-  }, '\n')
-
-  expect.equality(comments_utils.line_from_diff_hunk(hunk), 8)
-  expect.equality(comments_utils.line_from_diff_hunk('@@ -1 +1 @@\n+one'), 1)
-  expect.equality(comments_utils.line_from_diff_hunk('not a hunk'), nil)
-  expect.equality(comments_utils.line_from_diff_hunk(nil), nil)
-end
-
 return T

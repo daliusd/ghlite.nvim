@@ -346,9 +346,8 @@ PR comments are not loaded. Comments are loaded to quickfix list and to buffer
 diagnostics on buffer load. Navigate quickfix list using `cnext` and `cprev`
 (assumption here that you are using quickfix list in general).
 
-Comments held in a pending review are loaded too and marked `(pending)`. GitHub reports
-no line for them, so their position is derived from the diff hunk and the range of a
-multi-line pending comment is not known until it is submitted.
+Comments held in a pending review are loaded too and marked `(pending)`, with the same
+lines and ranges they will have once the review is submitted.
 
 NOTE: You must checkout git branch related to PR either using
 `:GHLitePRCheckout` or using other tools.

@@ -439,6 +439,65 @@ T['load_comments revalidates with the ETag and reuses the body on 304'] = functi
   )
 end
 
+T['get_pending_comments reads draft ranges off the review thread'] = function()
+  local threads = {
+    {
+      path = 'a.lua',
+      line = 17,
+      startLine = 15,
+      comments = { nodes = { { databaseId = 1, state = 'PENDING', author = { login = 'alice' }, body = 'Range' } } },
+    },
+    {
+      path = 'b.lua',
+      line = 4,
+      startLine = 4,
+      comments = {
+        nodes = {
+          { databaseId = 2, state = 'SUBMITTED', author = { login = 'bob' }, body = 'Root' },
+          { databaseId = 3, state = 'PENDING', author = { login = 'alice' }, body = 'Draft reply' },
+        },
+      },
+    },
+    -- Outdated beyond recovery: neither the current nor the original range survives.
+    {
+      path = 'c.lua',
+      line = vim.NIL,
+      startLine = vim.NIL,
+      originalLine = vim.NIL,
+      comments = { nodes = { { databaseId = 4, state = 'PENDING', author = { login = 'alice' }, body = 'Lost' } } },
+    },
+  }
+  local gh, restore = reload_gh_with_system({
+    run_str = function()
+      return 'owner/repo\n', ''
+    end,
+    run = function()
+      return vim.json.encode({
+        data = {
+          repository = { pullRequest = { reviewThreads = { nodes = threads, pageInfo = { hasNextPage = false } } } },
+        },
+      })
+    end,
+  })
+
+  local comments = async
+    .run(function()
+      return gh.get_pending_comments({ id = 5, node_id = 'PRR_1', pr_number = 12 })
+    end)
+    :wait(1000)
+  restore()
+
+  expect.equality(#comments, 2)
+  expect.equality(comments[1].id, 1)
+  expect.equality(comments[1].line, 17)
+  expect.equality(comments[1].start_line, 15)
+  expect.equality(comments[1].path, 'a.lua')
+  expect.equality(comments[1].pending, true)
+  expect.equality(comments[1].in_reply_to_id, nil)
+  expect.equality(comments[2].id, 3)
+  expect.equality(comments[2].in_reply_to_id, 2)
+end
+
 T['new_comment builds gh api request with start_line for ranges'] = function()
   local str_calls = {}
   local api_request
