@@ -788,6 +788,16 @@ M.comment_on_pr = function(on_success, comment_group, comment)
   end)
 end
 
+--- Forget a review GitHub no longer holds pending and reload the comment cache: submitted
+--- comments lose their pending mark and discarded ones disappear.
+--- @async
+--- @param review PendingReview
+local function forget_pending_review(review)
+  state.pending_reviews[review.pr_number] = nil
+  comments.load_comments_only(review.pr_number)
+  comments.load_comments_on_current_buffer()
+end
+
 --- @async
 --- @param review PendingReview
 --- @param event 'APPROVE'|'REQUEST_CHANGES'|'COMMENT'
@@ -798,7 +808,7 @@ local function submit_pending_review(review, event, body)
     ui.notify('Failed to submit review.', vim.log.levels.ERROR)
     return
   end
-  state.pending_reviews[review.pr_number] = nil
+  forget_pending_review(review)
   ui.notify('Review submitted.')
 end
 
@@ -890,7 +900,7 @@ function M.discard_review()
       ui.notify('Failed to discard review.', vim.log.levels.ERROR)
       return
     end
-    state.pending_reviews[review.pr_number] = nil
+    forget_pending_review(review)
     ui.notify('Review discarded.')
   end)
 end

@@ -266,6 +266,10 @@ T['approve_pr submits the pending review instead of a standalone approval'] = fu
         standalone_approve = true
       end,
     },
+    ['ghlite.comments'] = {
+      load_comments_only = function() end,
+      load_comments_on_current_buffer = function() end,
+    },
     ['ghlite.ui'] = {
       notify = function() end,
     },
@@ -277,6 +281,48 @@ T['approve_pr submits the pending review instead of a standalone approval'] = fu
   expect.equality(submit_call.event, 'APPROVE')
   expect.equality(submit_call.review.id, 3)
   -- The review is gone once submitted, so later comments post immediately again.
+  expect.equality(state.pending_reviews[12], nil)
+end
+
+T['discard_review reloads the comment cache once GitHub drops the review'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12 }
+  state.pending_reviews = { [12] = { id = 3, node_id = 'PRR_three', pr_number = 12 } }
+  state.comments_list = { ['/repo/lua/a.lua'] = { { id = 55, line = 2, comments = { { pending = true } } } } }
+
+  local reloaded_pr
+  local buffer_refreshed = false
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.gh'] = {
+      discard_review = function()
+        return true
+      end,
+    },
+    ['ghlite.comments'] = {
+      load_comments_only = function(pr_number)
+        reloaded_pr = pr_number
+        state.comments_list = {}
+      end,
+      load_comments_on_current_buffer = function()
+        buffer_refreshed = true
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+  }, function()
+    pr_commands.discard_review():wait(1000)
+  end)
+
+  expect.equality(reloaded_pr, 12)
+  expect.equality(buffer_refreshed, true)
+  expect.equality(state.comments_list, {})
   expect.equality(state.pending_reviews[12], nil)
 end
 
