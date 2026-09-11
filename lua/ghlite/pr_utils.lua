@@ -30,10 +30,23 @@ function M.get_selected_pr(silent)
   return nil
 end
 
+--- Review GitHub holds pending for this PR, if any. GitHub allows a single pending
+--- review per PR, so one left over from an earlier session, another nvim or the web UI
+--- is adopted; looked up once per PR per session, `pr_commands` keeps the cache current
+--- afterwards.
+--- @async
 --- @param pr_number number
 --- @return PendingReview|nil
 function M.active_pending_review(pr_number)
-  return state.pending_reviews[pr_number]
+  local review = state.pending_reviews[pr_number]
+  if review ~= nil or state.pending_reviews_checked[pr_number] then
+    return review
+  end
+
+  review = gh.get_pending_review(pr_number)
+  state.pending_reviews[pr_number] = review
+  state.pending_reviews_checked[pr_number] = true
+  return review
 end
 
 --- @async

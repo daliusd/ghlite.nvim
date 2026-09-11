@@ -14,6 +14,9 @@ M.comments_pr_number = nil
 --- @type table<number, PendingReview> keyed by PR number
 M.pending_reviews = {}
 
+--- @type table<number, true> PRs whose pending review was already looked up on GitHub
+M.pending_reviews_checked = {}
+
 --- @type integer|nil Diff view buffer id
 M.diff_buffer_id = nil
 

@@ -4,10 +4,11 @@ local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
 local function reset_state()
-  package.loaded['ghlite.pr_utils'] = nil
   local state = require('ghlite.state')
   state.selected_PR = nil
   state.comments_list = {}
+  state.pending_reviews = {}
+  state.pending_reviews_checked = {}
   state.diff_buffer_id = nil
   state.filename_line_to_diff_line = {}
   state.diff_line_to_filename_line = {}
@@ -86,6 +87,56 @@ T['get_selected_pr stores current PR and forwards passive lookup mode'] = functi
     expect.equality(result, current_pr)
     expect.equality(state.selected_PR, current_pr)
     expect.equality(lookup_mode, true)
+  end)
+end
+
+T['active_pending_review adopts the review GitHub holds pending'] = function()
+  reset_state()
+  local review = { id = 5179526890, node_id = 'PRR_five', pr_number = 1 }
+
+  with_overrides({
+    ['ghlite.gh'] = {
+      get_pending_review = function(pr_number)
+        return pr_number == 1 and review or nil
+      end,
+    },
+  }, function()
+    local state = require('ghlite.state')
+    local pr_utils = require('ghlite.pr_utils')
+
+    local result = async
+      .run(function()
+        return pr_utils.active_pending_review(1)
+      end)
+      :wait(1000)
+
+    expect.equality(result, review)
+    expect.equality(state.pending_reviews[1], review)
+  end)
+end
+
+T['active_pending_review asks GitHub once per PR'] = function()
+  reset_state()
+  local lookups = 0
+
+  with_overrides({
+    ['ghlite.gh'] = {
+      get_pending_review = function()
+        lookups = lookups + 1
+        return nil
+      end,
+    },
+  }, function()
+    local pr_utils = require('ghlite.pr_utils')
+
+    async
+      .run(function()
+        pr_utils.active_pending_review(1)
+        pr_utils.active_pending_review(1)
+      end)
+      :wait(1000)
+
+    expect.equality(lookups, 1)
   end)
 end
 

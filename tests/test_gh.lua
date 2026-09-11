@@ -3,7 +3,10 @@ local async = require('async')
 local T = MiniTest.new_set()
 local expect = MiniTest.expect
 
+--- Other modules capture `ghlite.gh` as an upvalue, so the reloaded copy must not
+--- outlive this helper: later test files stub the module table by identity.
 local function reload_gh_with_system(system_overrides)
+  local original_gh = package.loaded['ghlite.gh']
   package.loaded['ghlite.gh'] = nil
   local system = require('ghlite.system')
   local originals = {}
@@ -19,7 +22,7 @@ local function reload_gh_with_system(system_overrides)
       for key, value in pairs(originals) do
         system[key] = value
       end
-      package.loaded['ghlite.gh'] = nil
+      package.loaded['ghlite.gh'] = original_gh
     end
 end
 
