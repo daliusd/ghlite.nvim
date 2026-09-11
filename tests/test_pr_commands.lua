@@ -180,7 +180,7 @@ T['start_review adopts the review GitHub already holds pending'] = function()
   local state = require('ghlite.state')
   local pr_commands = require('ghlite.pr_commands')
   state.selected_PR = { number = 12 }
-  state.pending_review = nil
+  state.pending_reviews = {}
 
   local started = false
   with_overrides({
@@ -206,15 +206,48 @@ T['start_review adopts the review GitHub already holds pending'] = function()
   end)
 
   expect.equality(started, false)
-  expect.equality(state.pending_review, { id = 3, node_id = 'PRR_three', pr_number = 12 })
-  state.pending_review = nil
+  expect.equality(state.pending_reviews[12], { id = 3, node_id = 'PRR_three', pr_number = 12 })
+  state.pending_reviews = {}
+end
+
+T['start_review keeps the pending review of another PR'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  local pr_utils = require('ghlite.pr_utils')
+  state.selected_PR = { number = 12 }
+  state.pending_reviews = { [99] = { id = 3, node_id = 'PRR_three', pr_number = 99 } }
+
+  with_overrides({
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.gh'] = {
+      get_pending_review = function()
+        return nil
+      end,
+      start_review = function()
+        return { id = 4, node_id = 'PRR_four', pr_number = 12 }
+      end,
+    },
+    ['ghlite.ui'] = {
+      notify = function() end,
+    },
+  }, function()
+    pr_commands.start_review():wait(1000)
+  end)
+
+  expect.equality(pr_utils.active_pending_review(99), { id = 3, node_id = 'PRR_three', pr_number = 99 })
+  expect.equality(pr_utils.active_pending_review(12), { id = 4, node_id = 'PRR_four', pr_number = 12 })
+  state.pending_reviews = {}
 end
 
 T['approve_pr submits the pending review instead of a standalone approval'] = function()
   local state = require('ghlite.state')
   local pr_commands = require('ghlite.pr_commands')
   state.selected_PR = { number = 12 }
-  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+  state.pending_reviews = { [12] = { id = 3, node_id = 'PRR_three', pr_number = 12 } }
 
   local submit_call
   local standalone_approve = false
@@ -244,14 +277,14 @@ T['approve_pr submits the pending review instead of a standalone approval'] = fu
   expect.equality(submit_call.event, 'APPROVE')
   expect.equality(submit_call.review.id, 3)
   -- The review is gone once submitted, so later comments post immediately again.
-  expect.equality(state.pending_review, nil)
+  expect.equality(state.pending_reviews[12], nil)
 end
 
 T['approve_pr ignores a pending review left over from another PR'] = function()
   local state = require('ghlite.state')
   local pr_commands = require('ghlite.pr_commands')
   state.selected_PR = { number = 12 }
-  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 99 }
+  state.pending_reviews = { [99] = { id = 3, node_id = 'PRR_three', pr_number = 99 } }
 
   local approved_pr
   with_overrides({
@@ -276,7 +309,7 @@ T['approve_pr ignores a pending review left over from another PR'] = function()
   end)
 
   expect.equality(approved_pr, 12)
-  state.pending_review = nil
+  state.pending_reviews = {}
 end
 
 return T

@@ -7,7 +7,7 @@ local function reset_state()
   local state = require('ghlite.state')
   state.selected_PR = nil
   state.comments_list = {}
-  state.pending_review = nil
+  state.pending_reviews = {}
   state.diff_buffer_id = nil
   state.filename_line_to_diff_line = {}
   state.diff_line_to_filename_line = {}
@@ -278,7 +278,7 @@ T['comment_on_line adds the comment to the pending review instead of posting it'
   local comments = require('ghlite.comments')
   local state = require('ghlite.state')
   state.selected_PR = { number = 12, headRefOid = 'abc123' }
-  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+  state.pending_reviews[12] = { id = 3, node_id = 'PRR_three', pr_number = 12 }
 
   local bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(bufnr, '/repo/lua/a.lua')
@@ -342,7 +342,7 @@ T['comment_on_line adds the comment to the pending review instead of posting it'
   end)
 
   expect.equality(pending_call, {
-    review = state.pending_review,
+    review = state.pending_reviews[12],
     body = 'new body',
     path = 'lua/a.lua',
     start_line = 2,
@@ -364,7 +364,7 @@ T['reply refuses to join the review when the thread id is unknown'] = function()
   local comments = require('ghlite.comments')
   local state = require('ghlite.state')
   state.selected_PR = { number = 12 }
-  state.pending_review = { id = 3, node_id = 'PRR_three', pr_number = 12 }
+  state.pending_reviews[12] = { id = 3, node_id = 'PRR_three', pr_number = 12 }
 
   local notifications = {}
   local conversation = { id = 55, line = 2, start_line = 2, comments = {}, content = 'existing' }

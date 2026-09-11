@@ -798,7 +798,7 @@ local function submit_pending_review(review, event, body)
     ui.notify('Failed to submit review.', vim.log.levels.ERROR)
     return
   end
-  state.pending_review = nil
+  state.pending_reviews[review.pr_number] = nil
   ui.notify('Review submitted.')
 end
 
@@ -822,7 +822,7 @@ function M.start_review()
       return
     end
 
-    state.pending_review = review
+    state.pending_reviews[review.pr_number] = review
     ui.notify('Review started. Comments are held until :GHLitePRSubmitReview.')
   end)
 end
@@ -890,7 +890,7 @@ function M.discard_review()
       ui.notify('Failed to discard review.', vim.log.levels.ERROR)
       return
     end
-    state.pending_review = nil
+    state.pending_reviews[review.pr_number] = nil
     ui.notify('Review discarded.')
   end)
 end
