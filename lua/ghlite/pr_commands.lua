@@ -864,9 +864,7 @@ function M.start_review()
       return
     end
 
-    -- GitHub allows one pending review per PR, so adopt a review left over from an
-    -- earlier session or started in the web UI instead of failing to create a second.
-    local review = gh.get_pending_review(selected_pr.number) or gh.start_review(selected_pr.number)
+    local review = gh.start_review(selected_pr.number)
     if review == nil then
       ui.notify('Failed to start review.', vim.log.levels.ERROR)
       return

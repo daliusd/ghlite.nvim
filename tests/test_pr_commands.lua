@@ -181,6 +181,7 @@ T['start_review adopts the review GitHub already holds pending'] = function()
   local pr_commands = require('ghlite.pr_commands')
   state.selected_PR = { number = 12 }
   state.pending_reviews = {}
+  state.pending_reviews_checked = {}
 
   local started = false
   with_overrides({
@@ -340,6 +341,9 @@ T['approve_pr ignores a pending review left over from another PR'] = function()
       end,
     },
     ['ghlite.gh'] = {
+      get_pending_review = function()
+        return nil
+      end,
       submit_review = function()
         error('should not submit a review belonging to another PR')
       end,

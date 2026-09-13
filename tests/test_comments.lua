@@ -8,6 +8,7 @@ local function reset_state()
   state.selected_PR = nil
   state.comments_list = {}
   state.pending_reviews = {}
+  state.pending_reviews_checked = {}
   state.diff_buffer_id = nil
   state.filename_line_to_diff_line = {}
   state.diff_line_to_filename_line = {}
@@ -228,6 +229,9 @@ T['comment_on_line creates a new comment and stores it locally'] = function()
       notify = function() end,
     },
     ['ghlite.gh'] = {
+      get_pending_review = function()
+        return nil
+      end,
       new_comment = function(selected_pr, body, path, start_line, line)
         new_comment_call = {
           selected_pr = selected_pr,
@@ -456,6 +460,9 @@ T['comment_on_line replies to the existing conversation and updates content'] = 
       notify = function() end,
     },
     ['ghlite.gh'] = {
+      get_pending_review = function()
+        return nil
+      end,
       reply_to_comment = function(pr_number, body, reply_to)
         reply_call = { pr_number = pr_number, body = body, reply_to = reply_to }
         return {
