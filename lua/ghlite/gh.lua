@@ -19,6 +19,12 @@ local function parse_or_default(str, default)
   return default
 end
 
+--- @param value any
+--- @return boolean
+local function is_null(value)
+  return value == nil or value == vim.NIL
+end
+
 --- @async
 --- @param silent boolean|nil suppress expected gh errors when probing passively
 --- @return PullRequest|nil
@@ -212,30 +218,37 @@ function M.load_comments(pr_number, pending_review)
   return grouped_comments
 end
 
---- Return resolution metadata keyed by the root REST review-comment ID.
---- GitHub exposes review-thread resolution only through GraphQL.
+--- Page through a PR's review threads, calling `visit` for every thread node.
 --- @async
-function M.get_review_thread_statuses(pr_number, repo)
+--- @param repo string|nil
+--- @param pr_number number
+--- @param node_fields string GraphQL selection set of one thread node
+--- @param visit fun(thread: table)
+local function each_review_thread(repo, pr_number, node_fields, visit)
   repo = repo or get_repo()
   if repo == nil then
-    return {}
+    return
   end
   local owner, name = repo:match('^([^/]+)/(.+)$')
   if owner == nil then
-    return {}
+    return
   end
 
-  local query = [[query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  local query = f(
+    [[query($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
         reviewThreads(first: 100, after: $after) {
-          nodes { id isResolved comments(first: 1) { nodes { databaseId } } }
+          nodes { %s }
           pageInfo { hasNextPage endCursor }
         }
       }
     }
-  }]]
-  local statuses, after = {}, nil
+  }]],
+    node_fields
+  )
+
+  local after = nil
   repeat
     local request = {
       'gh',
@@ -260,17 +273,27 @@ function M.get_review_thread_statuses(pr_number, repo)
       and type(response.data.repository.pullRequest) == 'table'
       and response.data.repository.pullRequest.reviewThreads
     if type(threads) ~= 'table' then
-      config.log('get_review_thread_statuses failed', response)
+      config.log('review threads query failed', response)
       break
     end
     for _, thread in ipairs(threads.nodes or {}) do
-      local root = thread.comments and thread.comments.nodes and thread.comments.nodes[1]
-      if root and root.databaseId then
-        statuses[root.databaseId] = { thread_id = thread.id, resolved = thread.isResolved }
-      end
+      visit(thread)
     end
     after = threads.pageInfo and threads.pageInfo.hasNextPage and threads.pageInfo.endCursor or nil
   until after == nil
+end
+
+--- Return resolution metadata keyed by the root REST review-comment ID.
+--- GitHub exposes review-thread resolution only through GraphQL.
+--- @async
+function M.get_review_thread_statuses(pr_number, repo)
+  local statuses = {}
+  each_review_thread(repo, pr_number, 'id isResolved comments(first: 1) { nodes { databaseId } }', function(thread)
+    local root = thread.comments and thread.comments.nodes and thread.comments.nodes[1]
+    if root and root.databaseId then
+      statuses[root.databaseId] = { thread_id = thread.id, resolved = thread.isResolved }
+    end
+  end)
 
   return statuses
 end
@@ -401,37 +424,47 @@ function M.start_review(pr_number)
   return { id = resp.id, node_id = resp.node_id, pr_number = pr_number }
 end
 
---- Comments held in a pending review, which the PR comments listing omits.
---- They carry no line, side or position, so the line is recovered from the diff hunk.
+--- Comments held in a pending review, which the PR comments listing omits. The pending
+--- review's own listing reports no line, side or position, so they are read off their
+--- review thread, which carries the range GitHub will publish them on.
 --- @async
 --- @param review PendingReview
 --- @return table[] REST-shaped review comments
 function M.get_pending_comments(review)
-  local repo = get_repo()
-  if repo == nil then
-    return {}
-  end
-
-  local resp = parse_or_default(
-    system.run_str(f('gh api repos/%s/pulls/%d/reviews/%d/comments', repo, review.pr_number, review.id)),
-    {}
-  )
-  if type(resp) ~= 'table' or resp.message ~= nil then
-    config.log('get_pending_comments failed', resp)
-    return {}
-  end
+  local fields = 'path line startLine originalLine originalStartLine '
+    .. 'comments(first: 100) { nodes { databaseId url body updatedAt diffHunk state author { login } } }'
 
   local comments = {}
-  for _, comment in ipairs(resp) do
-    if comment.line == nil or comment.line == vim.NIL then
-      comment.line = comments_utils.line_from_diff_hunk(comment.diff_hunk)
-      comment.side = 'RIGHT'
+  each_review_thread(nil, review.pr_number, fields, function(thread)
+    local nodes = thread.comments and thread.comments.nodes or {}
+    local root = nodes[1]
+    if root == nil or (is_null(thread.line) and is_null(thread.originalLine)) then
+      return
     end
-    comment.pending = true
-    if comment.line ~= nil then
-      table.insert(comments, comment)
+
+    for index, node in ipairs(nodes) do
+      if node.state == 'PENDING' then
+        table.insert(comments, {
+          id = node.databaseId,
+          html_url = node.url,
+          path = thread.path,
+          line = thread.line,
+          start_line = thread.startLine,
+          original_line = thread.originalLine,
+          original_start_line = thread.originalStartLine,
+          -- Replies group under the thread root, which REST already reported when the
+          -- thread itself is not pending.
+          in_reply_to_id = index > 1 and root.databaseId or nil,
+          user = { login = is_null(node.author) and '' or node.author.login },
+          body = node.body,
+          updated_at = node.updatedAt,
+          diff_hunk = node.diffHunk,
+          pending = true,
+        })
+      end
     end
-  end
+  end)
+
   config.log('pending comments count', #comments)
   return comments
 end

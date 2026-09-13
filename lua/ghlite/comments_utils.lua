@@ -53,33 +53,6 @@ function M.convert_pending_comment(node, start_line, line)
   }
 end
 
---- Derive the file line a comment sits on from its diff hunk. Pending review comments
---- report no line, side or position, but their hunk always ends at the commented line,
---- so the new-file line count over the hunk body gives it back.
---- @param diff_hunk string|nil
---- @return number|nil
-function M.line_from_diff_hunk(diff_hunk)
-  if type(diff_hunk) ~= 'string' then
-    return nil
-  end
-
-  local new_start = diff_hunk:match('^@@ %-%d+,?%d* %+(%d+)')
-  if new_start == nil then
-    return nil
-  end
-
-  local line = tonumber(new_start) - 1
-  local first = true
-  for hunk_line in (diff_hunk .. '\n'):gmatch('([^\n]*)\n') do
-    if first then
-      first = false
-    elseif hunk_line:sub(1, 1) ~= '-' then
-      line = line + 1
-    end
-  end
-  return line
-end
-
 --- @param comment Comment
 local function format_comment(comment)
   return string.format(
