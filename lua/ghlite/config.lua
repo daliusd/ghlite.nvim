@@ -45,6 +45,7 @@ M.s = {
       checkout = 'co',
       refresh = 'r',
       open_commit = 'cs',
+      toggle_viewed = 'cv',
     },
     commit = {
       open_file = 'gf',

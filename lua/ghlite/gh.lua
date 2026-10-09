@@ -218,13 +218,15 @@ function M.load_comments(pr_number, pending_review)
   return grouped_comments
 end
 
---- Page through a PR's review threads, calling `visit` for every thread node.
+--- Page through one of a PR's GraphQL connections, calling `visit` for every node.
 --- @async
 --- @param repo string|nil
 --- @param pr_number number
---- @param node_fields string GraphQL selection set of one thread node
---- @param visit fun(thread: table)
-local function each_review_thread(repo, pr_number, node_fields, visit)
+--- @param connection string e.g. `reviewThreads`
+--- @param node_fields string GraphQL selection set of one node
+--- @param visit fun(node: table)
+--- @return string|nil pr_id GraphQL PR id, nil when the query failed
+local function each_pr_node(repo, pr_number, connection, node_fields, visit)
   repo = repo or get_repo()
   if repo == nil then
     return
@@ -238,16 +240,19 @@ local function each_review_thread(repo, pr_number, node_fields, visit)
     [[query($owner: String!, $name: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
-        reviewThreads(first: 100, after: $after) {
+        id
+        %s(first: 100, after: $after) {
           nodes { %s }
           pageInfo { hasNextPage endCursor }
         }
       }
     }
   }]],
+    connection,
     node_fields
   )
 
+  local pr_id = nil
   local after = nil
   repeat
     local request = {
@@ -268,19 +273,21 @@ local function each_review_thread(repo, pr_number, node_fields, visit)
       table.insert(request, 'after=' .. after)
     end
     local response = parse_or_default(system.run(request), {})
-    local threads = type(response.data) == 'table'
+    local pr = type(response.data) == 'table'
       and type(response.data.repository) == 'table'
-      and type(response.data.repository.pullRequest) == 'table'
-      and response.data.repository.pullRequest.reviewThreads
-    if type(threads) ~= 'table' then
-      config.log('review threads query failed', response)
-      break
+      and response.data.repository.pullRequest
+    local nodes = type(pr) == 'table' and pr[connection]
+    if type(nodes) ~= 'table' then
+      config.log(connection .. ' query failed', response)
+      return
     end
-    for _, thread in ipairs(threads.nodes or {}) do
-      visit(thread)
+    pr_id = pr.id
+    for _, node in ipairs(nodes.nodes or {}) do
+      visit(node)
     end
-    after = threads.pageInfo and threads.pageInfo.hasNextPage and threads.pageInfo.endCursor or nil
+    after = nodes.pageInfo and nodes.pageInfo.hasNextPage and nodes.pageInfo.endCursor or nil
   until after == nil
+  return pr_id
 end
 
 --- Return resolution metadata keyed by the root REST review-comment ID.
@@ -288,12 +295,18 @@ end
 --- @async
 function M.get_review_thread_statuses(pr_number, repo)
   local statuses = {}
-  each_review_thread(repo, pr_number, 'id isResolved comments(first: 1) { nodes { databaseId } }', function(thread)
-    local root = thread.comments and thread.comments.nodes and thread.comments.nodes[1]
-    if root and root.databaseId then
-      statuses[root.databaseId] = { thread_id = thread.id, resolved = thread.isResolved }
+  each_pr_node(
+    repo,
+    pr_number,
+    'reviewThreads',
+    'id isResolved comments(first: 1) { nodes { databaseId } }',
+    function(thread)
+      local root = thread.comments and thread.comments.nodes and thread.comments.nodes[1]
+      if root and root.databaseId then
+        statuses[root.databaseId] = { thread_id = thread.id, resolved = thread.isResolved }
+      end
     end
-  end)
+  )
 
   return statuses
 end
@@ -323,6 +336,42 @@ function M.set_review_thread_resolved(thread_id, resolved)
   end
   config.log('set_review_thread_resolved failed', response)
   return nil
+end
+
+--- @alias FileViewedState 'VIEWED'|'UNVIEWED'|'DISMISSED' DISMISSED: viewed, then changed by a later push
+
+--- @async
+--- @param pr_number number
+--- @return string|nil pr_id GraphQL PR id, needed to change the viewed state
+--- @return table<string, FileViewedState> states keyed by repo-relative path
+function M.get_viewed_files(pr_number)
+  local states = {}
+  local pr_id = each_pr_node(nil, pr_number, 'files', 'path viewerViewedState', function(file)
+    states[file.path] = file.viewerViewedState
+  end)
+  return pr_id, states
+end
+
+--- @async
+--- @param pr_id string GraphQL PR id
+--- @param path string repo-relative path
+--- @param viewed boolean
+--- @return boolean success
+function M.set_file_viewed(pr_id, path, viewed)
+  local mutation_name = viewed and 'markFileAsViewed' or 'unmarkFileAsViewed'
+  local query = f(
+    'mutation($prId: ID!, $path: String!) { %s(input: {pullRequestId: $prId, path: $path}) { clientMutationId } }',
+    mutation_name
+  )
+  local response = parse_or_default(
+    system.run({ 'gh', 'api', 'graphql', '-f', 'query=' .. query, '-f', 'prId=' .. pr_id, '-f', 'path=' .. path }),
+    {}
+  )
+  if type(response.data) == 'table' and response.data[mutation_name] ~= nil then
+    return true
+  end
+  config.log('set_file_viewed failed', response)
+  return false
 end
 
 --- @async
@@ -435,7 +484,7 @@ function M.get_pending_comments(review)
     .. 'comments(first: 100) { nodes { databaseId url body updatedAt diffHunk state author { login } } }'
 
   local comments = {}
-  each_review_thread(nil, review.pr_number, fields, function(thread)
+  each_pr_node(nil, review.pr_number, 'reviewThreads', fields, function(thread)
     local nodes = thread.comments and thread.comments.nodes or {}
     local root = nodes[1]
     if root == nil or (is_null(thread.line) and is_null(thread.originalLine)) then

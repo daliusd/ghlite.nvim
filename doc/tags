@@ -16,6 +16,7 @@
 :GHLitePRSelect	ghlite.txt	/*:GHLitePRSelect*
 :GHLitePRStartReview	ghlite.txt	/*:GHLitePRStartReview*
 :GHLitePRSubmitReview	ghlite.txt	/*:GHLitePRSubmitReview*
+:GHLitePRToggleFileViewed	ghlite.txt	/*:GHLitePRToggleFileViewed*
 :GHLitePRUnresolveComment	ghlite.txt	/*:GHLitePRUnresolveComment*
 :GHLitePRUpdateComment	ghlite.txt	/*:GHLitePRUpdateComment*
 :GHLitePRView	ghlite.txt	/*:GHLitePRView*
