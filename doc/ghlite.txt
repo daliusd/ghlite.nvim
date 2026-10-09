@@ -41,6 +41,7 @@ NOTE: Default config is shown below. Skip settings if you are fine with defaults
         diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto' - which tool to use for GHLitePRDiffview
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         comment_hunk = true, -- show GitHub diff hunks in loaded PR comment diagnostics and quickfix entries
+        comments_quickfix = 'fill', -- GHLitePRLoadComments: 'jump' fills the quickfix list and jumps to the first comment, 'fill' only fills it, false skips it
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         merge = {
           approved = '--squash',
@@ -347,6 +348,10 @@ This command loads PR comments. Only non-outdated review comments are loaded,
 PR comments are not loaded. Comments are loaded to quickfix list and to buffer
 diagnostics on buffer load. Navigate quickfix list using `cnext` and `cprev`
 (assumption here that you are using quickfix list in general).
+
+`comments_quickfix` controls the quickfix list: `'fill'` (default) fills it
+and keeps the cursor where it is, `'jump'` also jumps to the first comment,
+`false` leaves the quickfix list untouched.
 
 Comments held in a pending review are loaded too and marked `(pending)`, with
 the same lines and ranges they will have once the review is submitted.

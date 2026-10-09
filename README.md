@@ -40,6 +40,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
         diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto' - which tool to use for GHLitePRDiffview
         comment_split = 'split', -- set to empty string '' to open in active buffer, use 'tabnew' to open in tab
         comment_hunk = true, -- show GitHub diff hunks in loaded PR comment diagnostics and quickfix entries
+        comments_quickfix = 'fill', -- GHLitePRLoadComments: 'jump' fills the quickfix list and jumps to the first comment, 'fill' only fills it, false skips it
         open_command = 'open', -- open command to use, e.g. on Linux you might want to use xdg-open
         refresh_interval = 0, -- seconds between background refreshes of the PR list, PR view and loaded comments; 0 disables
         merge = {

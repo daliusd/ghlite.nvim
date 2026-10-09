@@ -46,7 +46,9 @@ local function load_comments_to_quickfix_list()
 
   if #qf_entries > 0 then
     vim.fn.setqflist(qf_entries, 'r')
-    vim.cmd('cfirst')
+    if config.s.comments_quickfix == 'jump' then
+      vim.cmd('cfirst')
+    end
   else
     ui.notify('No GH comments loaded.')
   end
@@ -65,7 +67,9 @@ M.load_comments = function()
     ui.notify('Comment loading started...')
     M.load_comments_only(checked_out_pr.number)
     ui.schedule()
-    load_comments_to_quickfix_list()
+    if config.s.comments_quickfix then
+      load_comments_to_quickfix_list()
+    end
 
     M.load_comments_on_current_buffer()
     ui.notify('Comments loaded.')
