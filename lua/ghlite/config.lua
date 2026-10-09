@@ -7,6 +7,7 @@ M.s = {
   diff_tool = 'auto', -- 'diffview', 'codediff', or 'auto'
   comment_split = 'split',
   comment_hunk = true,
+  comments_quickfix = 'fill', -- 'jump', 'fill' or false
   open_command = 'open',
   refresh_interval = 0, -- seconds between background refreshes of PR list, PR view and comments; 0 disables
   merge = {

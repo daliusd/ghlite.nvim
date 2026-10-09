@@ -672,6 +672,57 @@ T['delete_comment deletes the selected own comment and refreshes content'] = fun
   vim.api.nvim_buf_delete(bufnr, { force = true })
 end
 
+T['load_comments fills, jumps or skips the quickfix list per comments_quickfix'] = function()
+  local comments = require('ghlite.comments')
+  local config = require('ghlite.config')
+  local original_mode = config.s.comments_quickfix
+
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(bufnr, '/repo/current.lua')
+  vim.api.nvim_set_current_buf(bufnr)
+
+  local function run(mode)
+    reset_state()
+    vim.fn.setqflist({}, 'r')
+    vim.api.nvim_set_current_buf(bufnr)
+    config.s.comments_quickfix = mode
+    with_overrides({
+      ['ghlite.pr_utils'] = {
+        get_checked_out_pr = function()
+          return { number = 7 }
+        end,
+      },
+      ['ghlite.ui'] = {
+        notify = function() end,
+      },
+      ['ghlite.comments'] = {
+        load_comments_only = function()
+          require('ghlite.state').comments_list = {
+            [vim.fn.getcwd() .. '/tests/minimal_init.lua'] = { { line = 1, content = 'hi', comments = { {} } } },
+          }
+        end,
+        load_comments_on_current_buffer = function() end,
+      },
+    }, function()
+      comments.load_comments():wait(1000)
+    end)
+    return #vim.fn.getqflist(), vim.api.nvim_get_current_buf() == bufnr
+  end
+
+  local ok, err = pcall(function()
+    expect.equality({ run('fill') }, { 1, true })
+    expect.equality({ run('jump') }, { 1, false })
+    expect.equality({ run(false) }, { 0, true })
+  end)
+
+  config.s.comments_quickfix = original_mode
+  vim.fn.setqflist({}, 'r')
+  vim.api.nvim_buf_delete(bufnr, { force = true })
+  if not ok then
+    error(err)
+  end
+end
+
 T['diffview PR warning is suppressed only for passive buffer loading'] = function()
   local comments = require('ghlite.comments')
   local original_diffview_lib = package.loaded['diffview.lib']
