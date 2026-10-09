@@ -83,6 +83,9 @@ T['ca on a PR view review-comment body replies to its thread'] = function()
       get_changed_files = function()
         return {}
       end,
+      get_viewed_files = function()
+        return nil, {}
+      end,
     },
     ['ghlite.pr_utils'] = {
       get_selected_pr = function()
@@ -400,6 +403,9 @@ T['refresh_buffer redraws the PR view in place and keeps cursor and focus'] = fu
       get_changed_files = function()
         return {}
       end,
+      get_viewed_files = function()
+        return nil, {}
+      end,
     },
     ['ghlite.pr_utils'] = {
       get_selected_pr = function()
@@ -445,6 +451,9 @@ T['refresh_buffer redraws the PR view in place and keeps cursor and focus'] = fu
       get_changed_files = function()
         return {}
       end,
+      get_viewed_files = function()
+        return nil, {}
+      end,
     },
     ['ghlite.pr_utils'] = {
       get_selected_pr = function()
@@ -462,6 +471,65 @@ T['refresh_buffer redraws the PR view in place and keeps cursor and focus'] = fu
   end)
   expect.equality(vim.api.nvim_get_current_buf(), view_buf)
   expect.equality(vim.api.nvim_get_current_win(), view_win)
+end
+
+T['toggle_viewed on a PR view file line flips its viewed state on GitHub'] = function()
+  local state = require('ghlite.state')
+  local pr_commands = require('ghlite.pr_commands')
+  state.selected_PR = { number = 12, headRefName = 'feature' }
+  state.comments_list = {}
+
+  local viewed = { ['lua/a.lua'] = 'VIEWED', ['lua/b.lua'] = 'DISMISSED' }
+  local calls = {}
+  local view_lines
+  with_overrides({
+    ['ghlite.comments'] = { load_comments_only = function() end },
+    ['ghlite.gh'] = {
+      get_pr_info = function()
+        return pr_info_stub('Files')
+      end,
+      get_changed_files = function()
+        return { { filename = 'lua/a.lua', status = 'modified' }, { filename = 'lua/b.lua', status = 'added' } }
+      end,
+      get_viewed_files = function()
+        return 'PR_node', vim.deepcopy(viewed)
+      end,
+      set_file_viewed = function(pr_id, path, is_viewed)
+        table.insert(calls, { pr_id, path, is_viewed })
+        viewed[path] = is_viewed and 'VIEWED' or 'UNVIEWED'
+        return true
+      end,
+    },
+    ['ghlite.pr_utils'] = {
+      get_selected_pr = function()
+        return state.selected_PR
+      end,
+    },
+    ['ghlite.utils'] = {
+      get_current_git_branch_name = function()
+        return 'feature'
+      end,
+    },
+    ['ghlite.ui'] = { notify = function() end, schedule = function() end },
+  }, function()
+    pr_commands.load_pr_view():wait(1000)
+    local buf = vim.api.nvim_get_current_buf()
+    local function press_on(text)
+      local line = vim.fn.index(vim.api.nvim_buf_get_lines(buf, 0, -1, false), text) + 1
+      expect.no_equality(line, 0)
+      vim.api.nvim_win_set_cursor(0, { line, 0 })
+      pr_commands.toggle_file_viewed():wait(1000)
+    end
+
+    press_on('    [x] M lua/a.lua')
+    press_on('    [~] A lua/b.lua')
+    view_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  end)
+
+  -- A file changed since it was viewed is re-marked viewed, not unmarked.
+  expect.equality(calls, { { 'PR_node', 'lua/a.lua', false }, { 'PR_node', 'lua/b.lua', true } })
+  expect.equality(vim.tbl_contains(view_lines, '    [ ] M lua/a.lua'), true)
+  expect.equality(vim.tbl_contains(view_lines, '    [x] A lua/b.lua'), true)
 end
 
 T['refresh_buffer updates the PR list without stealing focus'] = function()

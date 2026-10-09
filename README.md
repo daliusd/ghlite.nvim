@@ -81,6 +81,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             checkout = 'co',
             refresh = 'r',
             open_commit = 'cs', -- open commit view for the commit under the cursor (<CR> works too)
+            toggle_viewed = 'cv', -- toggle viewed state of the changed file under the cursor
           },
           commit = {
             open_file = 'gf',
@@ -111,6 +112,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>ud', ':GHLitePRDeleteComment<cr>',    silent = true, desc = 'PR Delete comment' },
       { '<leader>ur', ':GHLitePRResolveComment<cr>',   silent = true, desc = 'PR Resolve comment thread' },
       { '<leader>uR', ':GHLitePRUnresolveComment<cr>', silent = true, desc = 'PR Unresolve comment thread' },
+      { '<leader>uw', ':GHLitePRToggleFileViewed<cr>', silent = true, desc = 'PR Toggle file viewed' },
       { '<leader>ug', ':GHLitePROpenComment<cr>',      silent = true, desc = 'PR Open comment' },
     }
   }
@@ -241,13 +243,16 @@ Supported key bindings:
 * `cs` or `<CR>` to open the commit view for the commit under the cursor (see
   `GHLiteCommitView`)
 
+* `cv` to toggle the viewed state of the changed file under the cursor
+
 * `r` to refresh the PR view
 
 * `cr` to run the AI review command (see `pr_commands` below)
 
 The view lists the PR's GitHub status checks under a `## Checks` heading, then
 its commits under `## Commits`, followed by changed files, PR comments and
-review comments. When the cursor is on a review
+review comments. Each changed file is prefixed with its viewed state as shown on
+GitHub: `[x]` viewed, `[ ]` not viewed, `[~]` changed since viewed. When the cursor is on a review
 PR or review comment body, `ca` preloads it as a quote in a new comment;
 elsewhere it writes a top-level PR comment.
 
@@ -414,6 +419,12 @@ Resolve or reopen the review-comment thread under the cursor. If several threads
 are attached to the line, prompts for one. In the built-in diff and PR views,
 these are bound to `keymaps.comment.resolve` (`cS`) and
 `keymaps.comment.unresolve` (`cU`).
+
+### GHLitePRToggleFileViewed
+
+Toggles the GitHub "Viewed" checkbox of the current file: the file under the
+cursor in the PR view, the file of the cursor line in the diff view, or the file
+in the current buffer. A file changed since it was viewed is marked viewed again.
 
 ### GHLitePROpenComment
 

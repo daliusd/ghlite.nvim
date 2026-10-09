@@ -20,6 +20,8 @@ local pr_view_loading = {}
 local pr_view_commits_by_buffer = {}
 --- Per PR view buffer: PR/review comment body lines -> comment and optional review thread.
 local pr_view_comments_by_buffer = {}
+--- Per PR view buffer: GraphQL PR id, viewed state by path and changed-file lines -> path.
+local pr_view_files_by_buffer = {}
 --- @type table<integer, integer> PR number -> its view buffer, reused across reloads
 local pr_view_buffer_by_pr = {}
 
@@ -376,6 +378,7 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.diff, 'open PR diff' },
     { config.s.keymaps.pr.diffview, 'open PR in diff tool' },
     { config.s.keymaps.pr.open_commit, 'open commit under cursor' },
+    { config.s.keymaps.pr.toggle_viewed, 'toggle file viewed' },
     { config.s.keymaps.pr.refresh, 'refresh PR' },
   }
   if not is_checked_out then
@@ -461,16 +464,31 @@ local changed_file_statuses = {
   renamed = 'R',
 }
 
-local function format_changed_files(changed_files, total)
+local viewed_marks = { VIEWED = '[x]', DISMISSED = '[~]' }
+
+--- @param viewed_states table<string, FileViewedState>
+--- @return string[] lines
+--- @return table<integer, string> path_by_line
+local function format_changed_files(changed_files, total, viewed_states)
   local lines = { '', '## Changed files', '' }
+  local path_by_line = {}
 
   if changed_files == nil then
     table.insert(lines, '    Unable to load changed files.')
-    return lines
+    return lines, path_by_line
   end
 
   for _, file in ipairs(changed_files) do
-    table.insert(lines, string.format('    %s %s', changed_file_statuses[file.status] or '?', file.filename))
+    table.insert(
+      lines,
+      string.format(
+        '    %s %s %s',
+        viewed_marks[viewed_states[file.filename]] or '[ ]',
+        changed_file_statuses[file.status] or '?',
+        file.filename
+      )
+    )
+    path_by_line[#lines] = file.filename
   end
 
   local remaining = total - #changed_files
@@ -478,7 +496,7 @@ local function format_changed_files(changed_files, total)
     table.insert(lines, string.format('    ... and %d more file%s.', remaining, remaining == 1 and '' or 's'))
   end
 
-  return lines
+  return lines, path_by_line
 end
 
 --- @param buf integer
@@ -551,16 +569,19 @@ local function set_pr_view_keymaps(buf, pr_number, is_checked_out)
     M.open_commit_under_cursor(buf)
   end
   map(config.s.keymaps.pr.open_commit, open_commit_under_cursor)
+  map(config.s.keymaps.pr.toggle_viewed, M.toggle_file_viewed)
   map('<CR>', open_commit_under_cursor)
 end
 
 --- @param pr_info table
 --- @param changed_files table|nil
+--- @param viewed_states table<string, FileViewedState>
 --- @param is_checked_out boolean
 --- @return string[] lines
 --- @return table<integer, integer> commit_index_by_line
 --- @return table<integer, table> comments_by_line
-local function render_pr_view(pr_info, changed_files, is_checked_out)
+--- @return table<integer, string> path_by_line
+local function render_pr_view(pr_info, changed_files, viewed_states, is_checked_out)
   local pr_view = {
     string.format('#%d %s', pr_info.number, pr_info.title),
     string.format('Created by %s at %s', pr_info.author.login, pr_info.createdAt),
@@ -616,8 +637,14 @@ local function render_pr_view(pr_info, changed_files, is_checked_out)
     commit_index_by_buffer_line[commits_offset + line] = index
   end
 
-  for _, line in ipairs(format_changed_files(changed_files, pr_info.changedFiles)) do
+  local files_offset = #pr_view
+  local file_lines, path_by_file_line = format_changed_files(changed_files, pr_info.changedFiles, viewed_states)
+  for _, line in ipairs(file_lines) do
     table.insert(pr_view, line)
+  end
+  local path_by_line = {}
+  for line, path in pairs(path_by_file_line) do
+    path_by_line[files_offset + line] = path
   end
 
   local comments_by_line = {}
@@ -661,7 +688,7 @@ local function render_pr_view(pr_info, changed_files, is_checked_out)
     comments_by_line[review_section_offset + line] = review_comment
   end
 
-  return pr_view, commit_index_by_buffer_line, comments_by_line
+  return pr_view, commit_index_by_buffer_line, comments_by_line, path_by_line
 end
 
 --- @param pr_number integer
@@ -686,12 +713,14 @@ local function show_pr_info(pr_info, background)
   end
 
   local changed_files = gh.get_changed_files(pr_info.number)
+  local pr_id, viewed_states = gh.get_viewed_files(pr_info.number)
   local current_branch = utils.get_current_git_branch_name()
   local is_checked_out = pr_info.headRefName ~= nil and pr_info.headRefName == current_branch
   comments.load_comments_only(pr_info.number)
 
   ui.schedule()
-  local lines, commit_index_by_line, comments_by_line = render_pr_view(pr_info, changed_files, is_checked_out)
+  local lines, commit_index_by_line, comments_by_line, path_by_line =
+    render_pr_view(pr_info, changed_files, viewed_states, is_checked_out)
 
   local buf = get_pr_view_buffer(pr_info.number)
   if buf == nil then
@@ -712,6 +741,7 @@ local function show_pr_info(pr_info, background)
     index_by_line = commit_index_by_line,
   }
   pr_view_comments_by_buffer[buf] = comments_by_line
+  pr_view_files_by_buffer[buf] = { pr_id = pr_id, states = viewed_states, path_by_line = path_by_line }
   set_pr_view_keymaps(buf, pr_info.number, is_checked_out)
 
   if not background then
@@ -759,6 +789,64 @@ end
 
 function M.load_pr_view()
   return task.run(load_pr_view)
+end
+
+--- Toggle the viewed state of the file on the current PR view line, or of the file shown
+--- in the current buffer. A file changed since it was viewed (DISMISSED) is marked viewed.
+function M.toggle_file_viewed()
+  return task.run(function()
+    local buf = vim.api.nvim_get_current_buf()
+    local files = pr_view_files_by_buffer[buf]
+    local pr_number, pr_id, states, path
+
+    if files ~= nil then
+      path = files.path_by_line[vim.api.nvim_win_get_cursor(0)[1]]
+      if path == nil then
+        ui.notify('No changed file on this line.', vim.log.levels.WARN)
+        return
+      end
+      pr_number, pr_id, states = pr_view_commits_by_buffer[buf].pr_number, files.pr_id, files.states
+    else
+      local selected_pr = pr_utils.get_selected_pr()
+      if selected_pr == nil then
+        ui.notify('No PR selected/checked out', vim.log.levels.WARN)
+        return
+      end
+      local filename, _, _, reason = comments.get_current_filename_and_line()
+      if filename == nil then
+        if reason ~= 'silent' then
+          ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
+        end
+        return
+      end
+      local git_root = utils.get_git_root()
+      if filename:sub(1, #git_root + 1) ~= git_root .. '/' then
+        ui.notify('File is not under git folder.', vim.log.levels.ERROR)
+        return
+      end
+      path = filename:sub(#git_root + 2)
+      pr_number = selected_pr.number
+      pr_id, states = gh.get_viewed_files(pr_number)
+    end
+
+    if pr_id == nil then
+      ui.notify('Failed to load viewed files.', vim.log.levels.ERROR)
+      return
+    end
+    if states[path] == nil then
+      ui.notify(path .. ' is not changed in this PR.', vim.log.levels.WARN)
+      return
+    end
+
+    local viewed = states[path] ~= 'VIEWED'
+    if not gh.set_file_viewed(pr_id, path, viewed) then
+      ui.notify('Failed to update viewed state.', vim.log.levels.ERROR)
+      return
+    end
+    states[path] = viewed and 'VIEWED' or 'UNVIEWED'
+    ui.notify(path .. (viewed and ' marked as viewed.' or ' marked as not viewed.'))
+    show_pr(pr_number, true)
+  end)
 end
 
 --- Re-fetch the PR list or PR view shown in `buf` without notifications or focus.

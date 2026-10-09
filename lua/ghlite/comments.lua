@@ -222,6 +222,7 @@ local function get_current_filename_and_line()
     return current_filename, current_start_line, current_line
   end
 end
+M.get_current_filename_and_line = get_current_filename_and_line
 
 --- Send a reply to a review-comment thread. The reply joins the pending review when
 --- one is open for this PR, otherwise it is posted immediately.
