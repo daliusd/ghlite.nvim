@@ -348,7 +348,7 @@ M.comment_on_line = function()
     end
 
     local git_root = utils.get_git_root()
-    if current_filename:sub(1, #git_root) ~= git_root then
+    if current_filename:sub(1, #git_root + 1) ~= git_root .. '/' then
       ui.notify('File is not under git folder.', vim.log.levels.ERROR)
       return
     end
@@ -388,9 +388,7 @@ M.comment_on_line = function()
               M.reply_to_comment(state.selected_PR.number, input, comment, M.load_comments_on_current_buffer)
             end
           else
-            if current_filename:sub(1, #git_root) == git_root then
-              new_conversation(state.selected_PR, input, current_filename, current_start_line, current_line)
-            end
+            new_conversation(state.selected_PR, input, current_filename, current_start_line, current_line)
           end
         end)
       end
