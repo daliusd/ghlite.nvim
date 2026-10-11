@@ -50,7 +50,12 @@ local function open_file_from_diff(open_command)
       end
       local file_path = fnpair[1]
       local line_in_file = fnpair[2]
-      vim.cmd(open_command .. ' ' .. file_path)
+      -- Lines of a deleted file have nothing on disk to open.
+      if vim.uv.fs_stat(file_path) == nil then
+        ui.notify('File is not in the working tree.', vim.log.levels.WARN)
+        return
+      end
+      vim.cmd(open_command .. ' ' .. vim.fn.fnameescape(file_path))
       vim.api.nvim_win_set_cursor(0, { line_in_file, 0 })
     end)
   end
