@@ -42,7 +42,7 @@ local function open_file_from_commit(buf, open_command)
       return
     end
 
-    vim.cmd(open_command .. ' ' .. fnpair[1])
+    vim.cmd(open_command .. ' ' .. vim.fn.fnameescape(fnpair[1]))
 
     -- The working tree may not hold the commit, so the line can be out of range.
     local line_count = vim.api.nvim_buf_line_count(0)
