@@ -10,6 +10,7 @@ local function reset_state()
   state.pending_reviews = {}
   state.pending_reviews_checked = {}
   state.diff_buffer_id = nil
+  state.diff_is_local = false
   state.filename_line_to_diff_line = {}
   state.diff_line_to_filename_line = {}
 end

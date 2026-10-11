@@ -15,6 +15,15 @@ M.s = {
     nonapproved = '--auto --squash',
   },
   html_comments_command = { 'lynx', '-stdin', '-dump' },
+  default_review = 'github', -- review GHLitePRStartReview starts without an argument: 'github' or 'agent'
+  agent = {
+    base = nil, -- ref local changes are compared against without a PR; nil tries origin/HEAD, origin/main, origin/master, main, master
+    intro = 'I reviewed your code and have the following comments. Please address them.', -- false to leave it out
+    output = 'clipboard', -- 'clipboard', 'buffer' or function(markdown, export)
+    github_threads = 'unresolved', -- review threads to export: 'unresolved', 'all' or false
+    github_comments = true, -- export review summaries and PR conversation comments
+    exclude_authors = {}, -- logins whose comments are left out, e.g. noisy bots
+  },
   pr_commands = {
     {
       name = 'AI Review',
@@ -47,6 +56,7 @@ M.s = {
       refresh = 'r',
       open_commit = 'cs',
       toggle_viewed = 'cv',
+      export = 'ce',
     },
     commit = {
       open_file = 'gf',

@@ -1,3 +1,4 @@
+local config = require('ghlite.config')
 local system = require('ghlite.system')
 
 local M = {}
@@ -72,6 +73,86 @@ end
 function M.get_current_git_branch_name()
   local result = system.run_str('git branch --show-current')
   return vim.split(result, '\n')[1]
+end
+
+--- True for a missing value, including JSON null.
+--- @param value any
+--- @return boolean
+function M.is_null(value)
+  return value == nil or value == vim.NIL
+end
+
+--- @param root string
+--- @param filename string absolute path
+--- @return string|nil path relative to `root`, nil when the file is outside it
+function M.relative_path(root, filename)
+  if filename:sub(1, #root + 1) ~= root .. '/' then
+    return nil
+  end
+  return filename:sub(#root + 2)
+end
+
+--- @param body string
+--- @return boolean
+local function is_html_comment(body)
+  -- NOTE: naive check if it is HTML comment
+  return config.s.html_comments_command ~= false and body:match('<%s*[%w%-]+.-%s*>') ~= nil
+end
+
+--- @param body string
+--- @param run fun(cmd: string[], opts: table): vim.SystemCompleted
+--- @return string
+local function render_html(body, run)
+  if not is_html_comment(body) then
+    return body
+  end
+  local success, result = pcall(run, config.s.html_comments_command, { stdin = body })
+  if success and result.code == 0 then
+    return result.stdout
+  end
+  return body
+end
+
+--- Render an HTML comment body (as bots often post) to text with
+--- `html_comments_command`; other bodies are returned unchanged.
+--- @param body string
+--- @return string
+function M.html_to_text(body)
+  return render_html(body, system.run_sync)
+end
+
+--- `html_to_text` without blocking the main loop, for exports rendering many comments.
+--- @async
+--- @param body string
+--- @return string
+function M.html_to_text_async(body)
+  return render_html(body, system.run_result)
+end
+
+--- Ask for a comment in a scratch buffer whose first line says how to send it:
+--- `<!-- {instruction} and press {key}[ {purpose}]: -->`.
+--- @param title string buffer name; a timestamp is appended
+--- @param instruction string e.g. 'Type your comment'
+--- @param callback fun(input: string)
+--- @param opts? { body?: string, purpose?: string } initial text; what sending does
+function M.ask_comment(title, instruction, callback, opts)
+  opts = opts or {}
+  local key = config.s.keymaps.comment.send_comment
+  local prompt = '<!-- '
+    .. instruction
+    .. ' and press '
+    .. key
+    .. (opts.purpose and (' ' .. opts.purpose) or '')
+    .. ': -->'
+  local content = opts.body ~= nil and vim.split(prompt .. '\n' .. opts.body, '\n') or { prompt, '' }
+  M.get_comment(
+    title .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
+    config.s.comment_split,
+    prompt,
+    content,
+    key,
+    callback
+  )
 end
 
 function M.get_comment(buf_name, split_command, prompt, content, key_binding, callback)

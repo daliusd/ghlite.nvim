@@ -3,12 +3,6 @@ require('ghlite.types')
 
 local M = {}
 
---- @param value any
---- @return boolean
-local function is_null(value)
-  return value == nil or value == vim.NIL
-end
-
 --- @return Comment: extracted gh comment
 function M.convert_comment(comment)
   return {
@@ -19,7 +13,7 @@ function M.convert_comment(comment)
     start_line = comment.start_line,
     original_line = comment.original_line,
     original_start_line = comment.original_start_line,
-    outdated = is_null(comment.position) and not is_null(comment.original_position),
+    outdated = utils.is_null(comment.position) and not utils.is_null(comment.original_position),
     user = comment.user.login,
     body = comment.body,
     updated_at = comment.updated_at,
@@ -75,9 +69,10 @@ function M.prepare_content(comments, opts)
 
   local content = opts.resolved == nil and '' or (opts.resolved and '✅ Resolved\n\n' or '○ Unresolved\n\n')
   local first = comments[1]
-  local effective_line = first and (is_null(first.line) and first.original_line or first.line)
-  local effective_start_line = first and (is_null(first.start_line) and first.original_start_line or first.start_line)
-  if #comments > 0 and not is_null(effective_start_line) and effective_start_line ~= effective_line then
+  local effective_line = first and (utils.is_null(first.line) and first.original_line or first.line)
+  local effective_start_line = first
+    and (utils.is_null(first.start_line) and first.original_start_line or first.start_line)
+  if #comments > 0 and not utils.is_null(effective_start_line) and effective_start_line ~= effective_line then
     content = content .. string.format('📓 Comment on lines %d to %d\n\n', effective_start_line, effective_line)
   end
 
@@ -103,7 +98,7 @@ function M.group_comments(gh_comments, opts, thread_statuses)
 
   for _, comment in pairs(gh_comments) do
     -- Pending comments report in_reply_to_id as null rather than omitting it.
-    if is_null(comment.in_reply_to_id) then
+    if utils.is_null(comment.in_reply_to_id) then
       comment_groups[comment.id] = { M.convert_comment(comment) }
       base[comment.id] = comment.id
     else
@@ -118,8 +113,8 @@ function M.group_comments(gh_comments, opts, thread_statuses)
     --- @type GroupedComment
     local grouped_comments = {
       id = comments[1].id,
-      line = is_null(comments[1].line) and comments[1].original_line or comments[1].line,
-      start_line = is_null(comments[1].start_line) and comments[1].original_start_line or comments[1].start_line,
+      line = utils.is_null(comments[1].line) and comments[1].original_line or comments[1].line,
+      start_line = utils.is_null(comments[1].start_line) and comments[1].original_start_line or comments[1].start_line,
       outdated = comments[1].outdated,
       url = comments[#comments].url,
       content = M.prepare_content(comments, opts),

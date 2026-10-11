@@ -48,6 +48,16 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           nonapproved = '--auto --squash',
         },
         html_comments_command = { 'lynx', '-stdin', '-dump' }, -- command to render HTML comments in PR view
+        default_review = 'github', -- review GHLitePRStartReview starts without an argument: 'github' or 'agent'
+        -- markdown export of review comments for coding agents (GHLitePRExportComments)
+        agent = {
+          base = nil, -- ref local changes are compared against without a PR; nil tries origin/HEAD, origin/main, origin/master, main, master
+          intro = 'I reviewed your code and have the following comments. Please address them.', -- false to leave it out
+          output = 'clipboard', -- 'clipboard', 'buffer' or function(markdown, export)
+          github_threads = 'unresolved', -- review threads to export: 'unresolved', 'all' or false
+          github_comments = true, -- export review summaries and PR conversation comments
+          exclude_authors = {}, -- logins whose comments are left out, e.g. noisy bots
+        },
         -- custom shell commands runnable from the PR view, output opens in a new buffer
         pr_commands = {
           {
@@ -83,6 +93,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             refresh = 'r',
             open_commit = 'cs', -- open commit view for the commit under the cursor (<CR> works too)
             toggle_viewed = 'cv', -- toggle viewed state of the changed file under the cursor
+            export = 'ce', -- export PR comments for coding agents (GHLitePRExportComments)
           },
           commit = {
             open_file = 'gf',
@@ -105,6 +116,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true, desc = 'PR Checkout' },
       { '<leader>uv', ':GHLitePRView<cr>',          silent = true, desc = 'PR View' },
       { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true, desc = 'PR Load Comments' },
+      { '<leader>ux', ':GHLitePRExportComments<cr>', silent = true, desc = 'PR Export comments' },
       { '<leader>up', ':GHLitePRDiff<cr>',          silent = true, desc = 'PR Diff' },
       { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true, desc = 'PR Diffview' },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true, desc = 'PR Add comment' },
@@ -191,6 +203,66 @@ replies you add afterwards are held in a pending review that nobody else can see
 `:GHLitePRApprove`, `:GHLitePRRequestChanges` or `:GHLitePRSubmitReview` publish all of
 them at once. `:GHLitePRDiscardReview` throws the pending review away.
 
+### Review with a coding agent
+
+An agent review works like a GitHub pending review, but its comments stay on your machine
+and are exported as markdown for a coding agent instead of being published:
+
+- Run `:GHLitePRStartReview agent` (or set `default_review = 'agent'`).
+
+- Comment as usual with `:GHLitePRAddComment`, in the diff view or in any file of the
+  repository, using visual mode for ranges. While the agent review takes comments, new
+  ones stay local even on lines with GitHub threads; the comment prompt shows `[agent]`.
+  Drafts show up as `GHLite agent` diagnostics and `:GHLitePRUpdateComment` /
+  `:GHLitePRDeleteComment` edit them. They are saved per repository, so they survive
+  restarts, and follow edits to their file: lines you add above a draft move it along,
+  and the new position is saved when you write the file.
+
+- Run `:GHLitePRSubmitReview`, type an optional summary and the review is exported to
+  `agent.output` (the clipboard by default) and ended. `:GHLitePRExportComments` exports
+  without ending it, `:GHLitePRDiscardReview` drops the drafts.
+
+When a PR is selected the export also carries its open GitHub feedback, so one paste
+gives the agent both your notes and the reviewers' threads. A GitHub review and an
+agent review can be open at the same time: new comments join the one started last,
+and running `:GHLitePRStartReview github` or `:GHLitePRStartReview agent` again
+switches between them. Comments only go to GitHub while the selected PR still has the
+pending review; after switching to another PR or submitting the review elsewhere they
+stay in the agent review. This way you can, for example, collect public comments in the
+GitHub review while sending questions you want checked first to the agent.
+
+#### Without a PR
+
+An agent review does not need a PR, so you can review your own branch, or what an agent
+wrote on it, before pushing anything:
+
+1. `:GHLitePRStartReview agent`.
+2. `:GHLitePRDiff` shows the local changes when no PR is selected or found for the
+   branch: the working tree, staged and unstaged changes included, against the merge
+   base of `agent.base` and HEAD. Without `agent.base` the first of `origin/HEAD`,
+   `origin/main`, `origin/master`, `main` and `master` that exists is used; on that
+   branch itself only uncommitted changes are left. Untracked files are included unless
+   git ignores them. `:GHLitePRDiffview` opens the same changes in your diff tool; comment on its
+   working-tree side, the base side has no file lines to attach comments to.
+3. Comment in the diff or jump to files with `gf` and comment there, with LSP at hand.
+4. `:GHLitePRSubmitReview` hands the comments to the agent. The export starts with what
+   was reviewed, e.g. `Reviewing local changes against origin/HEAD (merge base a1b2c3d),
+   including uncommitted changes and untracked files`.
+5. Let the agent fix them, run `:GHLitePRStartReview agent` and `:GHLitePRDiff` again
+   for the next round, and push once you are happy.
+
+#### With a PR
+
+With a PR selected the export carries its open GitHub feedback too:
+
+1. `:GHLitePRSelect` (or check the branch out) and `:GHLitePRLoadComments`.
+2. Resolve the threads you have handled or reject with `cS`, so they are left out.
+3. Optionally `:GHLitePRStartReview agent` and add your own instructions, e.g. which
+   suggestion to follow.
+4. `:GHLitePRExportComments` (`ce` in the PR view), or `:GHLitePRSubmitReview` when you
+   added drafts, and give the result to the agent.
+5. Reply to and resolve the threads once the agent has pushed its fixes.
+
 ## Background refresh
 
 With `refresh_interval` set, ghlite periodically re-fetches whatever is visible in the
@@ -245,6 +317,8 @@ Supported key bindings:
   `GHLiteCommitView`)
 
 * `cv` to toggle the viewed state of the changed file under the cursor
+
+* `ce` to export the PR comments for a coding agent (see `GHLitePRExportComments`)
 
 * `r` to refresh the PR view
 
@@ -309,7 +383,14 @@ Plugin searches for html tag and only then passes comment through
 
 ### GHLitePRStartReview
 
-This command starts a pending review on the selected PR. While it is open,
+`:GHLitePRStartReview [github|agent]`
+
+Without an argument this command starts the review set by `default_review`
+(`'github'`). `agent` starts an agent review (see
+[Review with a coding agent](#review-with-a-coding-agent)); running the command for a
+review that is already open makes it the one new comments join.
+
+`github` starts a pending review on the selected PR. While it is open,
 `GHLitePRAddComment` adds comments and replies to that review instead of posting them
 immediately, so the author is notified once instead of once per comment. GitHub allows
 a single pending review per PR, so a review left over from an earlier session or started
@@ -317,12 +398,22 @@ in the web UI is picked up on its own and comments keep batching after a restart
 
 ### GHLitePRSubmitReview
 
-This command submits the pending review as `COMMENT`, `APPROVE` or `REQUEST_CHANGES`.
+`:GHLitePRSubmitReview [github|agent]`
+
+Without an argument this command submits the review new comments join. An agent
+review asks for an optional summary, exports the review like `GHLitePRExportComments`
+and ends it.
+
+A GitHub review is submitted as `COMMENT`, `APPROVE` or `REQUEST_CHANGES`.
 GitHub requires a summary for everything except `APPROVE`, so you are asked for one.
 
 ### GHLitePRDiscardReview
 
-This command deletes the pending review and the comments held in it.
+`:GHLitePRDiscardReview [github|agent]`
+
+This command deletes the pending review and the comments held in it. Without an
+argument it discards the review new comments join. Discarding an agent review that
+holds comments asks for confirmation first, as they exist nowhere else.
 
 ### GHLitePRApprove
 
@@ -358,12 +449,67 @@ lines and ranges they will have once the review is submitted.
 NOTE: You must checkout git branch related to PR either using
 `:GHLitePRCheckout` or using other tools.
 
+### GHLitePRExportComments
+
+This command exports review comments as markdown for a coding agent: the drafts
+of an open agent review plus the selected PR's review summaries, PR conversation
+comments and unresolved review threads with their replies, links and diff hunks
+(`comment_hunk`). The agent review stays open; `GHLitePRSubmitReview` exports and
+ends it. Paste the result into your
+agent, or hand it over directly with `agent.output`.
+
+The layout follows the one [tuicr](https://tuicr.dev/) and
+[review.nvim](https://github.com/georgeguimaraes/review.nvim) export, so prompts
+written for them keep working:
+
+```markdown
+I reviewed your code and have the following comments. Please address them.
+
+Reviewing pull request #34: Add export
+URL: https://github.com/daliusd/ghlite.nvim/pull/34
+Head: a1b2c3d
+
+## Reviews
+
+- @alice (CHANGES_REQUESTED) - Please add tests.
+
+## Review threads
+
+1. `lua/ghlite/comments.lua:80-88` @alice - Can this be simpler?
+   <https://github.com/daliusd/ghlite.nvim/pull/34#discussion_r123>
+   - @bob - Agree, there is a helper in utils.
+```
+
+Resolve threads you have handled or rejected first and they are left out
+(`agent.github_threads = 'all'` keeps them). `agent.github_comments = false`
+skips review summaries and conversation comments, `agent.exclude_authors`
+drops comments by the given logins, e.g. bots.
+
+`agent.output` decides where the markdown goes: `'clipboard'` (default) copies
+it to the `+` register, `'buffer'` opens it in a scratch buffer, and a function
+receives the markdown and the structured data, e.g. to send it to a tmux pane
+running the agent:
+
+```lua
+agent = {
+  output = function(markdown)
+    -- bracketed paste, so newlines do not submit the prompt early
+    vim.system({ 'tmux', 'load-buffer', '-' }, { stdin = markdown }):wait()
+    vim.system({ 'tmux', 'paste-buffer', '-p', '-t', 'agent' })
+  end,
+},
+```
+
 ### GHLitePRDiff
 
 This command loads PR diff that you can review. This command shows diff of
 selected PR. If no PR is selected then PR number is resolved from git branch
 associated with PR. Comments are loaded and shown as diagnostics in this view
 as well.
+
+With an agent review open and no PR, it shows the local changes instead (see
+[Without a PR](#without-a-pr)); `gf` then opens the files directly and the PR keymaps
+are left out.
 
 Supported key bindings:
 
@@ -387,6 +533,9 @@ This command shows PR diff using either
 - `diff_tool = 'codediff'`: Always uses codediff.nvim (shows error if not
   installed)
 
+With an agent review open and no PR, it opens the local changes against the merge base
+instead (see [Without a PR](#without-a-pr)).
+
 This command will not show correct diff sometimes if you have gh older than
 2.63.0 (details here https://github.com/cli/cli/pull/9938).
 
@@ -408,11 +557,13 @@ Supported key bindings:
 
 ### GHLitePRUpdateComment
 
-This command updates selected comment.
+This command updates selected comment. Agent review drafts on the cursor
+line are offered next to your GitHub comments there.
 
 ### GHLitePRDeleteComment
 
-This command deletes selected comment.
+This command deletes selected comment. Agent review drafts on the cursor
+line are offered next to your GitHub comments there.
 
 ### GHLitePRResolveComment / GHLitePRUnresolveComment
 
