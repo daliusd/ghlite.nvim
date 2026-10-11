@@ -178,7 +178,8 @@ end
 --- @return string|nil filename
 --- @return integer|nil start_line
 --- @return integer|nil line
---- @return string|nil reason 'silent' when the caller should stay quiet
+--- @return string|nil reason 'silent' when the caller should stay quiet, 'notified' when
+--- the user was already told why
 local function get_current_filename_and_line()
   ui.schedule()
   local current_buf = vim.api.nvim_get_current_buf()
@@ -193,12 +194,14 @@ local function get_current_filename_and_line()
   local current_filename = vim.api.nvim_buf_get_name(current_buf)
 
   if current_buf == state.diff_buffer_id then
-    local info = state.diff_line_to_filename_line[current_start_line]
-    current_filename = info[1]
-    current_start_line = info[2]
-    info = state.diff_line_to_filename_line[current_line]
-    current_line = info[2]
-    return current_filename, current_start_line, current_line
+    local start_info = state.diff_line_to_filename_line[current_start_line]
+    local end_info = state.diff_line_to_filename_line[current_line]
+    -- Header lines (`diff --git`, `---`, `+++`, `@@`) map to no file line.
+    if start_info == nil or end_info == nil then
+      ui.notify('No file line here; move to a line of a hunk.', vim.log.levels.WARN)
+      return nil, nil, nil, 'notified'
+    end
+    return start_info[1], start_info[2], end_info[2]
   elseif M.is_in_diffview(current_filename) then
     local filename = M.get_diffview_filename(current_filename)
     if filename == nil then
@@ -341,7 +344,7 @@ M.comment_on_line = function()
 
     local current_filename, current_start_line, current_line, reason = get_current_filename_and_line()
     if current_filename == nil or current_start_line == nil or current_line == nil then
-      if reason ~= 'silent' then
+      if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
       end
       return
@@ -427,7 +430,7 @@ local function set_current_conversation_resolved(resolved)
   return task.run(function()
     local filename, _, line, reason = get_current_filename_and_line()
     if filename == nil then
-      if reason ~= 'silent' then
+      if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
       end
       return
@@ -464,7 +467,7 @@ M.open_comment = function()
   return task.run(function()
     local current_filename, _, current_line, reason = get_current_filename_and_line()
     if current_filename == nil then
-      if reason ~= 'silent' then
+      if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
       end
       return
@@ -545,7 +548,7 @@ M.update_comment = function()
   return task.run(function()
     local current_filename, _, current_line, reason = get_current_filename_and_line()
     if current_filename == nil then
-      if reason ~= 'silent' then
+      if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
       end
       return
@@ -573,7 +576,7 @@ M.delete_comment = function()
   return task.run(function()
     local current_filename, _, current_line, reason = get_current_filename_and_line()
     if current_filename == nil then
-      if reason ~= 'silent' then
+      if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
       end
       return

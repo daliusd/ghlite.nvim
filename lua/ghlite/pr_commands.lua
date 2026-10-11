@@ -814,7 +814,7 @@ function M.toggle_file_viewed()
       end
       local filename, _, _, reason = comments.get_current_filename_and_line()
       if filename == nil then
-        if reason ~= 'silent' then
+        if reason == nil then
           ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
         end
         return

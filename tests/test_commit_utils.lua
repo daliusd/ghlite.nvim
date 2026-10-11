@@ -337,15 +337,6 @@ T['format_commit_view excludes comments that only carry the sha as commit_id'] =
   expect.equality(has_line(lines, 'Not on this commit'), false)
 end
 
-T['is_dev_null detects deleted-file diff paths'] = function()
-  local commit_utils = require('ghlite.commit_utils')
-
-  expect.equality(commit_utils.is_dev_null('/repo//dev/null'), true)
-  expect.equality(commit_utils.is_dev_null('/dev/null'), true)
-  expect.equality(commit_utils.is_dev_null('/repo/lua/example.lua'), false)
-  expect.equality(commit_utils.is_dev_null(nil), false)
-end
-
 T['format_commit_view offers commit navigation only with a commit list'] = function()
   reset_comments()
   local commit_utils = require('ghlite.commit_utils')

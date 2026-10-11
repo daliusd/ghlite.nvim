@@ -36,9 +36,9 @@ local function open_file_from_commit(buf, open_command)
       return
     end
 
-    -- Deleted files are diffed against /dev/null, so there is nothing to open.
-    if commit_utils.is_dev_null(fnpair[1]) then
-      ui.notify('File was deleted in this commit.', vim.log.levels.WARN)
+    -- A file deleted in this commit, or since, has nothing on disk to open.
+    if vim.uv.fs_stat(fnpair[1]) == nil then
+      ui.notify('File is not in the working tree.', vim.log.levels.WARN)
       return
     end
 

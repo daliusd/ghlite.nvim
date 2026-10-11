@@ -37,14 +37,6 @@ function M.short_sha(sha)
   return sha:sub(1, 7)
 end
 
---- True for paths that `construct_mappings` derived from a `/dev/null` diff
---- header, which have no counterpart on disk.
---- @param filename string|nil
---- @return boolean
-function M.is_dev_null(filename)
-  return filename ~= nil and filename:match('/dev/null$') ~= nil
-end
-
 local file_statuses = {
   added = 'A',
   changed = 'M',
