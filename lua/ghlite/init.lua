@@ -17,9 +17,24 @@ M.setup = function(user_config)
   vim.api.nvim_create_user_command('GHLitePRView', pr_commands.load_pr_view, {})
   vim.api.nvim_create_user_command('GHLitePRApprove', pr_commands.approve_pr, {})
   vim.api.nvim_create_user_command('GHLitePRRequestChanges', pr_commands.request_changes_pr, {})
-  vim.api.nvim_create_user_command('GHLitePRStartReview', pr_commands.start_review, {})
-  vim.api.nvim_create_user_command('GHLitePRSubmitReview', pr_commands.submit_review, {})
-  vim.api.nvim_create_user_command('GHLitePRDiscardReview', pr_commands.discard_review, {})
+  local review_command_opts = {
+    nargs = '?',
+    -- Lua completion is not filtered by Neovim, so match what was typed here.
+    complete = function(arg_lead)
+      return vim.tbl_filter(function(kind)
+        return vim.startswith(kind, arg_lead)
+      end, { 'github', 'agent' })
+    end,
+  }
+  vim.api.nvim_create_user_command('GHLitePRStartReview', function(opts)
+    pr_commands.start_review(opts.args)
+  end, review_command_opts)
+  vim.api.nvim_create_user_command('GHLitePRSubmitReview', function(opts)
+    pr_commands.submit_review(opts.args)
+  end, review_command_opts)
+  vim.api.nvim_create_user_command('GHLitePRDiscardReview', function(opts)
+    pr_commands.discard_review(opts.args)
+  end, review_command_opts)
   vim.api.nvim_create_user_command('GHLitePRMerge', pr_commands.merge_pr, {})
   vim.api.nvim_create_user_command('GHLitePRAddPRComment', pr_commands.comment_on_pr, {})
   vim.api.nvim_create_user_command('GHLitePRExportComments', export.export_comments, {})
@@ -37,10 +52,26 @@ M.setup = function(user_config)
     commit_commands.open_commit(args.args)
   end, { nargs = 1 })
 
-  vim.api.nvim_create_autocmd('BufReadPost', {
+  vim.api.nvim_create_autocmd({ 'BufReadPost', 'FileChangedShellPost' }, {
     pattern = '*',
     callback = function(args)
+      -- Lines were replaced from disk, so agent draft anchors start over from saved lines.
+      comments.forget_agent_anchors(args.buf)
       comments.load_comments_on_buffer(args.buf)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('BufWritePost', {
+    pattern = '*',
+    callback = function(args)
+      comments.save_agent_anchors(args.buf)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    pattern = '*',
+    callback = function(args)
+      comments.forget_agent_anchors(args.buf)
     end,
   })
 

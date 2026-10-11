@@ -9,3 +9,6 @@ require('mini.test').setup({
     end,
   },
 })
+
+-- Keep agent review sessions written by tests out of the real data directory.
+require('ghlite.agent').dir = vim.fn.tempname() .. '/agent'

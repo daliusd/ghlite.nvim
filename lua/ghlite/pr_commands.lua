@@ -1,3 +1,4 @@
+local agent = require('ghlite.agent')
 local comments = require('ghlite.comments')
 local commit_commands = require('ghlite.commit_commands')
 local commit_utils = require('ghlite.commit_utils')
@@ -915,6 +916,10 @@ end
 --- @param review PendingReview
 local function forget_pending_review(review)
   state.pending_reviews[review.pr_number] = nil
+  -- An agent review still open takes new comments again.
+  if state.review_target == 'github' then
+    state.review_target = nil
+  end
   comments.load_comments_only(review.pr_number)
   comments.load_comments_on_current_buffer()
 end
@@ -933,15 +938,69 @@ local function submit_pending_review(review, event, body)
   ui.notify('Review submitted.')
 end
 
-function M.start_review()
+--- @param kind string|nil review kind given to the command
+--- @param default 'github'|'agent'
+--- @return 'github'|'agent'|nil
+local function parse_review_kind(kind, default)
+  if kind == nil or kind == '' then
+    return default
+  end
+  if kind ~= 'github' and kind ~= 'agent' then
+    ui.notify(string.format('Unknown review "%s": use github or agent.', kind), vim.log.levels.ERROR)
+    return nil
+  end
+  return kind
+end
+
+--- The review a command without an explicit kind acts on: the one new comments join.
+--- @return 'github'|'agent'
+local function current_review_kind()
+  return agent.is_target(agent.root()) and 'agent' or 'github'
+end
+
+--- @return string|nil
+local function agent_root_or_notify()
+  local root = agent.root()
+  if root == nil then
+    ui.notify('Not in a git repository.', vim.log.levels.ERROR)
+  end
+  return root
+end
+
+local function start_agent_review()
+  local root = agent_root_or_notify()
+  if root == nil then
+    return
+  end
+  local _, created = agent.start(root)
+  comments.refresh_agent_drafts()
+  if created then
+    ui.notify('Agent review started. Comments are held until :GHLitePRSubmitReview.')
+  else
+    ui.notify('Agent review already started. New comments go to it.')
+  end
+end
+
+--- @param kind string|nil 'github' or 'agent'; defaults to `default_review`
+function M.start_review(kind)
   return task.run(function()
+    kind = parse_review_kind(kind, config.s.default_review)
+    if kind == nil then
+      return
+    end
+    if kind == 'agent' then
+      start_agent_review()
+      return
+    end
+
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to review', vim.log.levels.ERROR)
       return
     end
     if pr_utils.active_pending_review(selected_pr.number) ~= nil then
-      ui.notify('Review already started.', vim.log.levels.WARN)
+      state.review_target = 'github'
+      ui.notify('Review already started. New comments go to it.', vim.log.levels.WARN)
       return
     end
 
@@ -952,12 +1011,59 @@ function M.start_review()
     end
 
     state.pending_reviews[review.pr_number] = review
+    state.review_target = 'github'
     ui.notify('Review started. Comments are held until :GHLitePRSubmitReview.')
   end)
 end
 
-function M.submit_review()
+--- Export the agent review with an optional summary, then end it.
+--- @async
+local function submit_agent_review()
+  local root = agent_root_or_notify()
+  if root == nil then
+    return
+  end
+  if agent.get(root) == nil then
+    ui.notify('No agent review started. Use :GHLitePRStartReview agent.', vim.log.levels.WARN)
+    return
+  end
+
+  ui.schedule()
+  local prompt = '<!-- [agent] Type an optional summary and press '
+    .. config.s.keymaps.comment.send_comment
+    .. ' to export the review: -->'
+
+  utils.get_comment(
+    'Agent Review Submit (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
+    config.s.comment_split,
+    prompt,
+    { prompt, '' },
+    config.s.keymaps.comment.send_comment,
+    function(input)
+      task.run(function()
+        if not export.send(export.collect(input)) then
+          return
+        end
+        agent.discard(root)
+        comments.refresh_agent_drafts()
+        ui.notify('Agent review submitted.')
+      end)
+    end
+  )
+end
+
+--- @param kind string|nil 'github' or 'agent'; defaults to the review new comments join
+function M.submit_review(kind)
   return task.run(function()
+    kind = parse_review_kind(kind, current_review_kind())
+    if kind == nil then
+      return
+    end
+    if kind == 'agent' then
+      submit_agent_review()
+      return
+    end
+
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to review', vim.log.levels.ERROR)
@@ -1000,8 +1106,41 @@ function M.submit_review()
   end)
 end
 
-function M.discard_review()
+--- @param kind string|nil 'github' or 'agent'; defaults to the review new comments join
+function M.discard_review(kind)
   return task.run(function()
+    kind = parse_review_kind(kind, current_review_kind())
+    if kind == nil then
+      return
+    end
+    if kind == 'agent' then
+      local root = agent_root_or_notify()
+      if root == nil then
+        return
+      end
+      local session = agent.get(root)
+      if session == nil then
+        ui.notify('No agent review started.', vim.log.levels.WARN)
+        return
+      end
+      -- Drafts exist nowhere else, and without an argument the review discarded can be a
+      -- surprise, e.g. after a restart forgot that a GitHub review was started last.
+      if #session.drafts > 0 then
+        local question = string.format(
+          'Discard the agent review and its %d comment%s?',
+          #session.drafts,
+          #session.drafts == 1 and '' or 's'
+        )
+        if ui.confirm(question, '&Yes\n&No', 2) ~= 1 then
+          return
+        end
+      end
+      agent.discard(root)
+      comments.refresh_agent_drafts()
+      ui.notify('Agent review discarded.')
+      return
+    end
+
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected to review', vim.log.levels.ERROR)

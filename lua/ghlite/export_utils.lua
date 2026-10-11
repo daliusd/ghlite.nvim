@@ -161,7 +161,27 @@ end
 --- @param export ExportData
 --- @return boolean
 function M.is_empty(export)
-  return #export.threads == 0 and #export.reviews == 0 and #export.pr_comments == 0
+  return clean_body(export.summary) == ''
+    and #export.drafts == 0
+    and #export.threads == 0
+    and #export.reviews == 0
+    and #export.pr_comments == 0
+end
+
+--- @param drafts AgentDraft[]
+--- @return AgentDraft[] sorted copy, by path and line
+function M.sort_drafts(drafts)
+  local sorted = vim.list_extend({}, drafts)
+  table.sort(sorted, function(a, b)
+    if a.path ~= b.path then
+      return a.path < b.path
+    end
+    if a.line ~= b.line then
+      return a.line < b.line
+    end
+    return a.id < b.id
+  end)
+  return sorted
 end
 
 --- @param export ExportData
@@ -176,8 +196,10 @@ function M.render(export, opts)
     end
   end
 
-  if not M.is_empty(export) and opts.intro ~= '' then
-    table.insert(lines, opts.intro)
+  -- `false` disables options elsewhere in the config, so accept it here too.
+  local intro = type(opts.intro) == 'string' and opts.intro or ''
+  if not M.is_empty(export) and intro ~= '' then
+    table.insert(lines, intro)
     blank()
   end
 
@@ -189,6 +211,40 @@ function M.render(export, opts)
     end
     if not is_null(pr.head) then
       table.insert(lines, 'Head: ' .. pr.head:sub(1, 7))
+    end
+    blank()
+  end
+
+  local scope = export.scope
+  if pr == nil and scope ~= nil then
+    table.insert(
+      lines,
+      string.format(
+        'Reviewing local changes against %s (merge base %s), including uncommitted changes and untracked files',
+        scope.base,
+        scope.merge_base:sub(1, 7)
+      )
+    )
+    blank()
+  end
+
+  local summary = clean_body(export.summary)
+  if summary ~= '' then
+    add_item(lines, 'Summary: ', summary, '')
+    blank()
+  end
+
+  if #export.drafts > 0 then
+    table.insert(lines, '## Comments')
+    table.insert(lines, '')
+    for i, draft in ipairs(M.sort_drafts(export.drafts)) do
+      local marker = string.format('%d. ', i)
+      add_item(
+        lines,
+        marker .. M.format_location(draft.path, draft.start_line, draft.line) .. ' - ',
+        clean_body(draft.body),
+        string.rep(' ', #marker)
+      )
     end
     blank()
   end

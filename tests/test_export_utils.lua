@@ -59,6 +59,7 @@ end
 
 T['render produces the agent markdown layout'] = function()
   local markdown = export_utils.render({
+    drafts = {},
     pr = { number = 34, title = 'Add export', url = 'https://github.test/pr/34', head = 'a1b2c3d4e5' },
     reviews = { { author = 'alice', state = 'CHANGES_REQUESTED', body = 'Please add tests.' } },
     pr_comments = { { author = 'carol', body = 'Line one\nLine two' } },
@@ -122,6 +123,7 @@ end
 
 T['render widens the hunk fence past backticks in the hunk'] = function()
   local markdown = export_utils.render({
+    drafts = {},
     reviews = {},
     pr_comments = {},
     threads = {
@@ -167,10 +169,71 @@ T['render keeps only the hunk lines leading up to the commented line'] = functio
 end
 
 T['is_empty reports exports without any comments'] = function()
-  expect.equality(export_utils.is_empty({ pr = { number = 1 }, reviews = {}, pr_comments = {}, threads = {} }), true)
+  local empty = { pr = { number = 1 }, drafts = {}, reviews = {}, pr_comments = {}, threads = {} }
+  expect.equality(export_utils.is_empty(empty), true)
   expect.equality(
-    export_utils.is_empty({ reviews = {}, pr_comments = { { author = 'a', body = 'b' } }, threads = {} }),
+    export_utils.is_empty(vim.tbl_extend('force', empty, { pr_comments = { { author = 'a', body = 'b' } } })),
     false
+  )
+  expect.equality(
+    export_utils.is_empty(vim.tbl_extend('force', empty, { drafts = { { id = 1, path = 'a', line = 1 } } })),
+    false
+  )
+end
+
+T['render lists agent drafts sorted, after the summary'] = function()
+  local markdown = export_utils.render({
+    summary = 'Tighten error handling.',
+    drafts = {
+      { id = 2, path = 'lua/b.lua', start_line = 3, line = 3, body = 'Rename.' },
+      { id = 3, path = 'lua/a.lua', start_line = 10, line = 14, body = 'Extract a helper.\nKeep it pure.' },
+      { id = 1, path = 'lua/a.lua', start_line = 2, line = 2, body = 'Handle nil.' },
+    },
+    reviews = {},
+    pr_comments = {},
+    threads = {},
+  }, { intro = 'Please address them.', comment_hunk = true })
+
+  expect.equality(
+    markdown,
+    table.concat({
+      'Please address them.',
+      '',
+      'Summary: Tighten error handling.',
+      '',
+      '## Comments',
+      '',
+      '1. `lua/a.lua:2` - Handle nil.',
+      '2. `lua/a.lua:10-14` - Extract a helper.',
+      '   Keep it pure.',
+      '3. `lua/b.lua:3` - Rename.',
+      '',
+    }, '\n')
+  )
+end
+
+T['a summary on its own is exported'] = function()
+  local export = { summary = 'Refactor module X.', drafts = {}, reviews = {}, pr_comments = {}, threads = {} }
+
+  expect.equality(export_utils.is_empty(export), false)
+  expect.equality(export_utils.is_empty(vim.tbl_extend('force', export, { summary = ' \n ' })), true)
+  expect.equality(
+    export_utils.render(export, { intro = 'Intro.', comment_hunk = true }),
+    'Intro.\n\nSummary: Refactor module X.\n'
+  )
+end
+
+T['render treats intro = false as no intro'] = function()
+  local export = {
+    drafts = { { id = 1, path = 'a.lua', start_line = 1, line = 1, body = 'Fix.' } },
+    reviews = {},
+    pr_comments = {},
+    threads = {},
+  }
+
+  expect.equality(
+    export_utils.render(export, { intro = false, comment_hunk = true }),
+    '## Comments\n\n1. `a.lua:1` - Fix.\n'
   )
 end
 

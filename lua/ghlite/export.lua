@@ -1,5 +1,6 @@
 -- Export review comments as markdown for coding agents.
 
+local agent = require('ghlite.agent')
 local comments = require('ghlite.comments')
 local config = require('ghlite.config')
 local export_utils = require('ghlite.export_utils')
@@ -14,17 +15,28 @@ require('ghlite.types')
 
 local M = {}
 
---- Gather the selected PR's review summaries, conversation comments and review
---- threads. Without a selected PR the export is empty.
+--- Gather the agent session's drafts plus the selected PR's review summaries,
+--- conversation comments and review threads.
 --- @async
+--- @param summary string|nil
 --- @return ExportData
-function M.collect()
+function M.collect(summary)
   local agent_config = config.s.agent
+  local session = agent.get(agent.root())
   --- @type ExportData
-  local export = { reviews = {}, pr_comments = {}, threads = {} }
+  local export = {
+    summary = summary,
+    drafts = session and session.drafts or {},
+    reviews = {},
+    pr_comments = {},
+    threads = {},
+  }
 
   local selected_pr = pr_utils.get_selected_pr(true)
   if selected_pr == nil then
+    if session ~= nil then
+      export.scope = agent.resolve_scope()
+    end
     return export
   end
 

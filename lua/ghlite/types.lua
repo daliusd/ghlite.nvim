@@ -35,6 +35,25 @@
 --- @field node_id string GraphQL review id, used to attach comments
 --- @field pr_number number PR the review belongs to
 
+--- A comment held in an agent review session until it is exported.
+--- @class AgentDraft
+--- @field id number
+--- @field path string relative to the git root
+--- @field start_line number
+--- @field line number
+--- @field body string
+--- @field created_at string
+
+--- @class AgentSession
+--- @field root string git root the session belongs to
+--- @field next_id number
+--- @field drafts AgentDraft[]
+
+--- Local changes an agent review covers when no PR is selected.
+--- @class LocalScope
+--- @field base string ref the changes are compared against, e.g. origin/HEAD
+--- @field merge_base string commit sha
+
 --- @class FileNameAndLinePair
 --- @field [1] string filename
 --- @field [2] number line
@@ -126,6 +145,9 @@
 --- Everything one export renders; also handed to a custom `agent.output` function.
 --- @class ExportData
 --- @field pr? ExportPullRequest
+--- @field scope? LocalScope set instead of `pr` when local changes were reviewed
+--- @field summary? string
+--- @field drafts AgentDraft[]
 --- @field reviews ExportNote[]
 --- @field pr_comments ExportNote[]
 --- @field threads ExportThread[]

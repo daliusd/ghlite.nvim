@@ -1,3 +1,4 @@
+local agent = require('ghlite.agent')
 local comments_utils = require('ghlite.comments_utils')
 local config = require('ghlite.config')
 local gh = require('ghlite.gh')
@@ -9,6 +10,172 @@ local ui = require('ghlite.ui')
 local utils = require('ghlite.utils')
 
 local M = {}
+
+local agent_namespace = vim.api.nvim_create_namespace('GHLiteAgentNamespace')
+
+--- @param buf_name string
+--- @return boolean
+local function is_virtual_buffer(buf_name)
+  return buf_name == '' or buf_name:match('^%a[%w+.-]*://') ~= nil
+end
+
+--- @return AgentSession|nil
+local function current_agent_session()
+  return agent.get(agent.root())
+end
+
+local anchor_namespace = vim.api.nvim_create_namespace('GHLiteAgentAnchors')
+
+--- Extmarks following the first and last line of each draft while its file is open, so
+--- edits above a draft move it along; saved to the session when the file is written.
+--- @type table<integer, table<number, { start_mark: integer, end_mark: integer }>> bufnr -> draft id -> marks
+local anchors = {}
+
+--- @param bufnr integer
+--- @param line number 1-based
+--- @return integer extmark id
+local function set_anchor(bufnr, line)
+  local row = math.max(0, math.min(line, vim.api.nvim_buf_line_count(bufnr)) - 1)
+  -- Column 0 with right gravity: lines inserted above push the mark down with its line.
+  return vim.api.nvim_buf_set_extmark(bufnr, anchor_namespace, row, 0, {})
+end
+
+--- Lines a draft covers in `bufnr`: where its anchors are, else where it was saved.
+--- @param bufnr integer
+--- @param draft AgentDraft
+--- @return number start_line
+--- @return number line
+local function draft_lines(bufnr, draft)
+  local marks = anchors[bufnr] and anchors[bufnr][draft.id]
+  if marks == nil then
+    return draft.start_line, draft.line
+  end
+  local start_pos = vim.api.nvim_buf_get_extmark_by_id(bufnr, anchor_namespace, marks.start_mark, {})
+  local end_pos = vim.api.nvim_buf_get_extmark_by_id(bufnr, anchor_namespace, marks.end_mark, {})
+  if start_pos[1] == nil or end_pos[1] == nil then
+    return draft.start_line, draft.line
+  end
+  return start_pos[1] + 1, math.max(start_pos[1], end_pos[1]) + 1
+end
+
+--- Anchor the drafts of `filename` in `bufnr`, dropping anchors of drafts that are gone.
+--- @param bufnr integer
+--- @param filename string absolute path of a file buffer
+--- @param session AgentSession|nil
+local function update_anchors(bufnr, filename, session)
+  local previous = anchors[bufnr] or {}
+  local current = {}
+  for _, draft in ipairs(session and session.drafts or {}) do
+    if session.root .. '/' .. draft.path == filename then
+      current[draft.id] = previous[draft.id]
+        or { start_mark = set_anchor(bufnr, draft.start_line), end_mark = set_anchor(bufnr, draft.line) }
+      previous[draft.id] = nil
+    end
+  end
+  for _, marks in pairs(previous) do
+    pcall(vim.api.nvim_buf_del_extmark, bufnr, anchor_namespace, marks.start_mark)
+    pcall(vim.api.nvim_buf_del_extmark, bufnr, anchor_namespace, marks.end_mark)
+  end
+  anchors[bufnr] = next(current) ~= nil and current or nil
+end
+
+--- Forget the anchors of `bufnr`, e.g. when it was reloaded from disk and its marks no
+--- longer follow the lines they were set on; they are set again from the saved lines.
+--- @param bufnr integer
+M.forget_agent_anchors = function(bufnr)
+  anchors[bufnr] = nil
+  if vim.api.nvim_buf_is_valid(bufnr) then
+    vim.api.nvim_buf_clear_namespace(bufnr, anchor_namespace, 0, -1)
+  end
+end
+
+--- Save where the drafts of `bufnr` moved to, once the file on disk matches the buffer.
+--- @param bufnr integer
+M.save_agent_anchors = function(bufnr)
+  local marks = anchors[bufnr]
+  local session = marks and current_agent_session()
+  if session == nil then
+    return
+  end
+  local moves = {}
+  for _, draft in ipairs(session.drafts) do
+    if marks[draft.id] ~= nil then
+      local start_line, line = draft_lines(bufnr, draft)
+      if start_line ~= draft.start_line or line ~= draft.line then
+        moves[draft.id] = { start_line = start_line, line = line }
+      end
+    end
+  end
+  if next(moves) ~= nil then
+    agent.move_drafts(session.root, moves)
+  end
+end
+
+--- Show the agent session's drafts as diagnostics.
+--- @param bufnr integer
+--- @param filename string|nil absolute path the buffer shows; nil for the PR diff buffer
+--- @param session AgentSession|nil
+local function show_agent_drafts(bufnr, filename, session)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+  local is_file_buffer = filename ~= nil and not is_virtual_buffer(vim.api.nvim_buf_get_name(bufnr))
+  if is_file_buffer then
+    update_anchors(bufnr, filename, session)
+  end
+  local diagnostics = {}
+  for _, draft in ipairs(session and session.drafts or {}) do
+    local draft_filename = session.root .. '/' .. draft.path
+    local lnum
+    if filename == nil then
+      -- The diff shows the files on disk, so the saved lines apply.
+      local diff_lines = state.filename_line_to_diff_line[draft_filename]
+      lnum = diff_lines and diff_lines[draft.line]
+    elseif filename == draft_filename then
+      lnum = is_file_buffer and select(2, draft_lines(bufnr, draft)) or draft.line
+    end
+    if lnum ~= nil then
+      table.insert(diagnostics, {
+        lnum = lnum - 1,
+        col = 0,
+        message = agent.format_draft(draft),
+        severity = vim.diagnostic.severity.INFO,
+        source = 'GHLite agent',
+      })
+    end
+  end
+  -- Skip setting nothing over nothing: this runs on every BufEnter, and each set fires
+  -- DiagnosticChanged, also for users who never start an agent review.
+  if #diagnostics == 0 and #vim.diagnostic.get(bufnr, { namespace = agent_namespace }) == 0 then
+    return
+  end
+  vim.diagnostic.set(agent_namespace, bufnr, diagnostics, {})
+end
+
+--- Redraw agent draft diagnostics on every loaded buffer after the drafts changed.
+M.refresh_agent_drafts = function()
+  vim.schedule(function()
+    local session = current_agent_session()
+    local current_buf = vim.api.nvim_get_current_buf()
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(bufnr) then
+        local buf_name = vim.api.nvim_buf_get_name(bufnr)
+        if bufnr == state.diff_buffer_id then
+          show_agent_drafts(bufnr, nil, session)
+        elseif not is_virtual_buffer(buf_name) then
+          show_agent_drafts(bufnr, buf_name, session)
+        elseif session == nil then
+          show_agent_drafts(bufnr, buf_name, nil)
+        elseif M.is_in_codediff(buf_name) or (M.is_in_diffview(buf_name) and bufnr == current_buf) then
+          -- Their file is only known asynchronously; reloading resolves it. Diffview
+          -- resolves it from the current view, which only describes the current buffer,
+          -- so other diffview buffers are redrawn when they are entered.
+          M.load_comments_on_buffer(bufnr)
+        end
+      end
+    end
+  end)
+end
 
 local function refresh_content(conversation)
   conversation.content = comments_utils.prepare_content(conversation.comments, {
@@ -104,6 +271,10 @@ M.load_comments_on_buffer = function(bufnr)
   end
 
   local buf_name = vim.api.nvim_buf_get_name(bufnr)
+  -- Agent drafts need no PR, so show them before the PR checks below.
+  if not is_virtual_buffer(buf_name) then
+    show_agent_drafts(bufnr, buf_name, current_agent_session())
+  end
 
   return task.run(function()
     if M.is_in_diffview(buf_name) then
@@ -135,7 +306,8 @@ M.load_comments_on_diff_buffer = function(bufnr)
   config.log('load_comments_on_diff_buffer')
   local diagnostics = {}
 
-  for filename, comments in pairs(state.comments_list) do
+  -- Local changes have no PR, so threads loaded for one earlier do not belong here.
+  for filename, comments in pairs(state.diff_is_local and {} or state.comments_list) do
     if state.filename_line_to_diff_line[filename] then
       for _, comment in pairs(comments) do
         local diff_line = state.filename_line_to_diff_line[filename][comment.line]
@@ -158,6 +330,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
       return
     end
     vim.diagnostic.set(vim.api.nvim_create_namespace('GHLiteDiffNamespace'), bufnr, diagnostics, {})
+    show_agent_drafts(bufnr, nil, current_agent_session())
   end)
 end
 
@@ -175,12 +348,13 @@ M.get_conversations = function(current_filename, current_line)
 end
 
 --- @async
+--- @param any_file boolean|nil accept any file buffer instead of requiring the PR checked out
 --- @return string|nil filename
 --- @return integer|nil start_line
 --- @return integer|nil line
 --- @return string|nil reason 'silent' when the caller should stay quiet, 'notified' when
 --- the user was already told why
-local function get_current_filename_and_line()
+local function get_current_filename_and_line(any_file)
   ui.schedule()
   local current_buf = vim.api.nvim_get_current_buf()
   local current_start_line = vim.fn.line("'<")
@@ -214,6 +388,8 @@ local function get_current_filename_and_line()
       return nil
     end
     return filename, current_start_line, current_line
+  elseif any_file then
+    return current_filename, current_start_line, current_line
   else
     local is_pr_checked_out = pr_utils.is_pr_checked_out()
     local checked_out_pr, declined = pr_utils.get_checked_out_pr()
@@ -334,8 +510,80 @@ local function new_conversation(selected_pr, input, filename, start_line, line)
   M.load_comments_on_current_buffer()
 end
 
+--- Add a draft to the agent review session.
+--- @async
+--- @param session AgentSession
+local function comment_for_agent(session)
+  local filename, start_line, line, reason = get_current_filename_and_line(true)
+  if reason == 'notified' then
+    return
+  end
+  if filename == nil or start_line == nil or line == nil then
+    -- In a diff tool only the working-tree side, and with a PR its head side, maps to
+    -- file lines; the base side does not.
+    ui.notify('Nothing to comment on here; comment on the working-tree side of the diff.', vim.log.levels.WARN)
+    return
+  end
+  local path = agent.relative_path(session, filename)
+  if path == nil then
+    ui.notify('File is not under git folder.', vim.log.levels.ERROR)
+    return
+  end
+
+  ui.schedule()
+  local prompt = '<!-- [agent] Type your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
+  utils.get_comment(
+    'Agent comment (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
+    config.s.comment_split,
+    prompt,
+    { prompt, '' },
+    config.s.keymaps.comment.send_comment,
+    function(input)
+      if vim.trim(input) == '' then
+        ui.notify('Empty comment discarded.', vim.log.levels.WARN)
+        return
+      end
+      if agent.add_draft(session.root, path, start_line, line, input) == nil then
+        ui.notify('The agent review was ended meanwhile; comment not added.', vim.log.levels.WARN)
+        return
+      end
+      ui.notify('Comment added to agent review.')
+      M.refresh_agent_drafts()
+    end
+  )
+end
+
+--- Agent drafts on the cursor line, when an agent review is open.
+--- @async
+--- @return AgentDraft[] drafts
+--- @return AgentSession|nil session
+local function get_agent_drafts_on_line()
+  local session = agent.get(agent.root())
+  if session == nil or #session.drafts == 0 then
+    return {}, session
+  end
+  local filename, _, line = get_current_filename_and_line(true)
+  local path = filename and agent.relative_path(session, filename)
+  if path == nil then
+    return {}, session
+  end
+  local bufnr = vim.api.nvim_get_current_buf()
+  return vim.tbl_filter(function(draft)
+    return draft.path == path and select(2, draft_lines(bufnr, draft)) == line
+  end, session.drafts),
+    session
+end
+
 M.comment_on_line = function()
   return task.run(function()
+    -- While an agent review is the target every new comment stays local, even on lines
+    -- with GitHub threads, so nothing meant for the agent is published by accident.
+    local root = agent.root()
+    if agent.is_target(root) then
+      comment_for_agent(agent.get(root))
+      return
+    end
+
     local selected_pr = pr_utils.get_selected_pr()
     if selected_pr == nil then
       ui.notify('No PR selected/checked out', vim.log.levels.WARN)
@@ -542,8 +790,104 @@ local function edit_comment_body(comment, conversation)
   )
 end
 
+--- When agent drafts sit on the cursor line, pick one of them or of the own GitHub
+--- comments already loaded for that line, so neither hides the other.
+--- @async
+--- @param prompt string
+--- @return boolean handled false when there are no drafts on the line
+--- @return { draft?: AgentDraft, comment?: Comment, conversation?: GroupedComment }|nil choice
+--- @return AgentSession|nil session
+local function select_own_comment_with_drafts(prompt)
+  local drafts, session = get_agent_drafts_on_line()
+  if #drafts == 0 then
+    return false
+  end
+
+  local choices = vim.tbl_map(function(draft)
+    return { draft = draft }
+  end, drafts)
+  local filename, _, line = get_current_filename_and_line(true)
+  if filename ~= nil and #M.get_conversations(filename, line) > 0 then
+    local comments_list, conversations_list = get_own_comments(filename, line)
+    for i, comment in ipairs(comments_list) do
+      table.insert(choices, { comment = comment, conversation = conversations_list[i] })
+    end
+  end
+
+  if #choices == 1 then
+    return true, choices[1], session
+  end
+  local choice = ui.select(choices, {
+    prompt = prompt,
+    format_item = function(item)
+      if item.draft ~= nil then
+        return '[agent] ' .. vim.split(item.draft.body, '\n')[1]
+      end
+      return string.format('%s: %s', item.comment.updated_at, vim.split(item.comment.body, '\n')[1])
+    end,
+  })
+  return true, choice, session
+end
+
+--- @param session AgentSession
+--- @param draft AgentDraft
+local function edit_draft_body(session, draft)
+  local prompt = '<!-- [agent] Change your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
+  utils.get_comment(
+    'Agent edit comment (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
+    config.s.comment_split,
+    prompt,
+    vim.split(prompt .. '\n' .. draft.body, '\n'),
+    config.s.keymaps.comment.send_comment,
+    function(input)
+      if vim.trim(input) == '' then
+        ui.notify('Empty comment discarded; use :GHLitePRDeleteComment to delete it.', vim.log.levels.WARN)
+        return
+      end
+      if not agent.update_draft(session.root, draft.id, input) then
+        ui.notify('The agent comment no longer exists.', vim.log.levels.WARN)
+        return
+      end
+      ui.notify('Agent comment updated.')
+      M.refresh_agent_drafts()
+    end
+  )
+end
+
+--- @async
+--- @param comment Comment
+--- @param convo GroupedComment
+local function delete_github_comment(comment, convo)
+  ui.notify('Deleting comment...')
+  gh.delete_comment(comment.id)
+
+  local function is_non_deleted_comment(c)
+    return c.id ~= comment.id
+  end
+
+  convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
+  refresh_content(convo)
+
+  ui.notify('Comment deleted.')
+  M.load_comments_on_current_buffer()
+end
+
 M.update_comment = function()
   return task.run(function()
+    local handled, choice, session = select_own_comment_with_drafts('Select comment to update:')
+    if handled then
+      if choice == nil then
+        return
+      end
+      ui.schedule()
+      if choice.draft ~= nil then
+        edit_draft_body(session, choice.draft)
+      else
+        edit_comment_body(choice.comment, choice.conversation)
+      end
+      return
+    end
+
     local current_filename, _, current_line, reason = get_current_filename_and_line()
     if current_filename == nil then
       if reason == nil then
@@ -572,6 +916,21 @@ end
 
 M.delete_comment = function()
   return task.run(function()
+    local handled, choice, session = select_own_comment_with_drafts('Select comment to delete:')
+    if handled then
+      if choice == nil then
+        return
+      end
+      if choice.draft ~= nil then
+        agent.delete_draft(session.root, choice.draft.id)
+        ui.notify('Agent comment deleted.')
+        M.refresh_agent_drafts()
+      else
+        delete_github_comment(choice.comment, choice.conversation)
+      end
+      return
+    end
+
     local current_filename, _, current_line, reason = get_current_filename_and_line()
     if current_filename == nil then
       if reason == nil then
@@ -593,19 +952,7 @@ M.delete_comment = function()
       end,
     })
     if comment ~= nil then
-      ui.notify('Deleting comment...')
-      gh.delete_comment(comment.id)
-
-      local function is_non_deleted_comment(c)
-        return c.id ~= comment.id
-      end
-
-      local convo = conversations_list[idx]
-      convo.comments = utils.filter_array(convo.comments, is_non_deleted_comment)
-      refresh_content(convo)
-
-      ui.notify('Comment deleted.')
-      M.load_comments_on_current_buffer()
+      delete_github_comment(comment, conversations_list[idx])
     end
   end)
 end
@@ -624,7 +971,7 @@ end
 --- @return string|nil
 M.get_diffview_filename = function(buf_name, silent)
   local view = require('diffview.lib').get_current_view()
-  local file = view:infer_cur_file()
+  local file = view and view:infer_cur_file()
   if not file then
     return nil
   end
@@ -729,6 +1076,10 @@ M.load_comments_on_buffer_by_filename = function(bufnr, filename)
       return
     end
 
+    -- File buffers got their drafts in load_comments_on_buffer already.
+    if is_virtual_buffer(vim.api.nvim_buf_get_name(bufnr)) then
+      show_agent_drafts(bufnr, filename, current_agent_session())
+    end
     config.log('load_comments_on_buffer filename', filename)
     if state.comments_list[filename] ~= nil then
       local diagnostics = {}
