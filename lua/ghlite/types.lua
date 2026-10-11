@@ -95,3 +95,37 @@
 --- @field description? string
 --- @field detailsUrl? string
 --- @field targetUrl? string
+
+--- @class ExportComment
+--- @field author string
+--- @field body string
+--- @field pending boolean
+
+--- @class ExportThread
+--- @field path string relative to the git root
+--- @field line number
+--- @field start_line? number
+--- @field outdated boolean
+--- @field resolved boolean
+--- @field url? string
+--- @field diff_hunk? string
+--- @field comments ExportComment[]
+
+--- A PR-level review summary or conversation comment.
+--- @class ExportNote
+--- @field author string
+--- @field state? string review state, e.g. CHANGES_REQUESTED
+--- @field body string
+
+--- @class ExportPullRequest
+--- @field number number
+--- @field title? string
+--- @field url? string
+--- @field head? string head commit sha
+
+--- Everything one export renders; also handed to a custom `agent.output` function.
+--- @class ExportData
+--- @field pr? ExportPullRequest
+--- @field reviews ExportNote[]
+--- @field pr_comments ExportNote[]
+--- @field threads ExportThread[]

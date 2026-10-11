@@ -15,6 +15,13 @@ M.s = {
     nonapproved = '--auto --squash',
   },
   html_comments_command = { 'lynx', '-stdin', '-dump' },
+  agent = {
+    intro = 'I reviewed your code and have the following comments. Please address them.',
+    output = 'clipboard', -- 'clipboard', 'buffer' or function(markdown, export)
+    github_threads = 'unresolved', -- review threads to export: 'unresolved', 'all' or false
+    github_comments = true, -- export review summaries and PR conversation comments
+    exclude_authors = {}, -- logins whose comments are left out, e.g. noisy bots
+  },
   pr_commands = {
     {
       name = 'AI Review',
@@ -47,6 +54,7 @@ M.s = {
       refresh = 'r',
       open_commit = 'cs',
       toggle_viewed = 'cv',
+      export = 'ce',
     },
     commit = {
       open_file = 'gf',

@@ -7,6 +7,7 @@
 :GHLitePRDiff	ghlite.txt	/*:GHLitePRDiff*
 :GHLitePRDiffview	ghlite.txt	/*:GHLitePRDiffview*
 :GHLitePRDiscardReview	ghlite.txt	/*:GHLitePRDiscardReview*
+:GHLitePRExportComments	ghlite.txt	/*:GHLitePRExportComments*
 :GHLitePRList	ghlite.txt	/*:GHLitePRList*
 :GHLitePRLoadComments	ghlite.txt	/*:GHLitePRLoadComments*
 :GHLitePRMerge	ghlite.txt	/*:GHLitePRMerge*

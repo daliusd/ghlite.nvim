@@ -35,9 +35,10 @@ end
 --- Run a command given as an argument list without displaying stderr.
 --- @async
 --- @param cmd string[]
+--- @param opts table|nil extra `vim.system` options, e.g. `{ stdin = string }`
 --- @return table
-function M.run_result(cmd)
-  return async.await(3, vim.system, cmd, { text = true })
+function M.run_result(cmd, opts)
+  return async.await(3, vim.system, cmd, vim.tbl_extend('force', { text = true }, opts or {}))
 end
 
 --- Run a command synchronously and return its result.

@@ -2,6 +2,7 @@ local comments = require('ghlite.comments')
 local commit_commands = require('ghlite.commit_commands')
 local commit_utils = require('ghlite.commit_utils')
 local config = require('ghlite.config')
+local export = require('ghlite.export')
 local gh = require('ghlite.gh')
 local pr_utils = require('ghlite.pr_utils')
 local state = require('ghlite.state')
@@ -379,6 +380,7 @@ local function format_pr_keymaps(is_checked_out)
     { config.s.keymaps.pr.diffview, 'open PR in diff tool' },
     { config.s.keymaps.pr.open_commit, 'open commit under cursor' },
     { config.s.keymaps.pr.toggle_viewed, 'toggle file viewed' },
+    { config.s.keymaps.pr.export, 'export comments' },
     { config.s.keymaps.pr.refresh, 'refresh PR' },
   }
   if not is_checked_out then
@@ -570,6 +572,7 @@ local function set_pr_view_keymaps(buf, pr_number, is_checked_out)
   end
   map(config.s.keymaps.pr.open_commit, open_commit_under_cursor)
   map(config.s.keymaps.pr.toggle_viewed, M.toggle_file_viewed)
+  map(config.s.keymaps.pr.export, export.export_comments)
   map('<CR>', open_commit_under_cursor)
 end
 
@@ -656,17 +659,7 @@ local function render_pr_view(pr_info, changed_files, viewed_states, is_checked_
     for _, comment in pairs(pr_info.comments) do
       table.insert(pr_view, string.format('✍️ %s at %s:', comment.author.login, comment.createdAt))
 
-      local comment_body = string.gsub(comment.body, '\r', '')
-
-      -- NOTE: naive check if it is HTML comment
-      if config.s.html_comments_command ~= false and comment.body:match('<%s*[%w%-]+.-%s*>') ~= nil then
-        local success, result = pcall(function()
-          return system.run_sync(config.s.html_comments_command, { stdin = comment.body })
-        end)
-        if success then
-          comment_body = result.stdout
-        end
-      end
+      local comment_body = utils.html_to_text(string.gsub(comment.body, '\r', ''))
 
       for _, line in ipairs(vim.split(comment_body, '\n')) do
         table.insert(pr_view, line)

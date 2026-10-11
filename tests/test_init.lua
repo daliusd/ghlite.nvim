@@ -15,6 +15,7 @@ T['setup registers all user commands'] = function()
     'GHLitePRMerge',
     'GHLitePRAddPRComment',
     'GHLitePRLoadComments',
+    'GHLitePRExportComments',
     'GHLitePRDiff',
     'GHLitePRDiffview',
     'GHLitePRAddComment',

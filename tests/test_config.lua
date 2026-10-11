@@ -4,8 +4,12 @@ local expect = MiniTest.expect
 local default_config
 
 T['setup deep-merges user config without dropping defaults'] = function()
+  -- Load a fresh copy and put the shared one back afterwards: other modules keep a
+  -- reference to it, so tests that run later would configure a stale table.
+  local shared_config = package.loaded['ghlite.config']
   package.loaded['ghlite.config'] = nil
   local config = require('ghlite.config')
+  package.loaded['ghlite.config'] = shared_config
   default_config = vim.deepcopy(config.s)
 
   config.setup({

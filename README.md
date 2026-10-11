@@ -48,6 +48,14 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
           nonapproved = '--auto --squash',
         },
         html_comments_command = { 'lynx', '-stdin', '-dump' }, -- command to render HTML comments in PR view
+        -- markdown export of review comments for coding agents (GHLitePRExportComments)
+        agent = {
+          intro = 'I reviewed your code and have the following comments. Please address them.',
+          output = 'clipboard', -- 'clipboard', 'buffer' or function(markdown, export)
+          github_threads = 'unresolved', -- review threads to export: 'unresolved', 'all' or false
+          github_comments = true, -- export review summaries and PR conversation comments
+          exclude_authors = {}, -- logins whose comments are left out, e.g. noisy bots
+        },
         -- custom shell commands runnable from the PR view, output opens in a new buffer
         pr_commands = {
           {
@@ -83,6 +91,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
             refresh = 'r',
             open_commit = 'cs', -- open commit view for the commit under the cursor (<CR> works too)
             toggle_viewed = 'cv', -- toggle viewed state of the changed file under the cursor
+            export = 'ce', -- export PR comments for coding agents (GHLitePRExportComments)
           },
           commit = {
             open_file = 'gf',
@@ -105,6 +114,7 @@ NOTE: default config here. You can skip all the settings if you are OK with defa
       { '<leader>uo', ':GHLitePRCheckout<cr>',      silent = true, desc = 'PR Checkout' },
       { '<leader>uv', ':GHLitePRView<cr>',          silent = true, desc = 'PR View' },
       { '<leader>uu', ':GHLitePRLoadComments<cr>',  silent = true, desc = 'PR Load Comments' },
+      { '<leader>ux', ':GHLitePRExportComments<cr>', silent = true, desc = 'PR Export comments' },
       { '<leader>up', ':GHLitePRDiff<cr>',          silent = true, desc = 'PR Diff' },
       { '<leader>ul', ':GHLitePRDiffview<cr>',      silent = true, desc = 'PR Diffview' },
       { '<leader>ua', ':GHLitePRAddComment<cr>',    silent = true, desc = 'PR Add comment' },
@@ -246,6 +256,8 @@ Supported key bindings:
 
 * `cv` to toggle the viewed state of the changed file under the cursor
 
+* `ce` to export the PR comments for a coding agent (see `GHLitePRExportComments`)
+
 * `r` to refresh the PR view
 
 * `cr` to run the AI review command (see `pr_commands` below)
@@ -357,6 +369,55 @@ lines and ranges they will have once the review is submitted.
 
 NOTE: You must checkout git branch related to PR either using
 `:GHLitePRCheckout` or using other tools.
+
+### GHLitePRExportComments
+
+This command exports the selected PR's feedback as markdown for a coding agent:
+review summaries, PR conversation comments and unresolved review threads with
+their replies, links and diff hunks (`comment_hunk`). Paste the result into your
+agent, or hand it over directly with `agent.output`.
+
+The layout follows the one [tuicr](https://tuicr.dev/) and
+[review.nvim](https://github.com/georgeguimaraes/review.nvim) export, so prompts
+written for them keep working:
+
+```markdown
+I reviewed your code and have the following comments. Please address them.
+
+Reviewing pull request #34: Add export
+URL: https://github.com/daliusd/ghlite.nvim/pull/34
+Head: a1b2c3d
+
+## Reviews
+
+- @alice (CHANGES_REQUESTED) - Please add tests.
+
+## Review threads
+
+1. `lua/ghlite/comments.lua:80-88` @alice - Can this be simpler?
+   <https://github.com/daliusd/ghlite.nvim/pull/34#discussion_r123>
+   - @bob - Agree, there is a helper in utils.
+```
+
+Resolve threads you have handled or rejected first and they are left out
+(`agent.github_threads = 'all'` keeps them). `agent.github_comments = false`
+skips review summaries and conversation comments, `agent.exclude_authors`
+drops comments by the given logins, e.g. bots.
+
+`agent.output` decides where the markdown goes: `'clipboard'` (default) copies
+it to the `+` register, `'buffer'` opens it in a scratch buffer, and a function
+receives the markdown and the structured data, e.g. to send it to a tmux pane
+running the agent:
+
+```lua
+agent = {
+  output = function(markdown)
+    -- bracketed paste, so newlines do not submit the prompt early
+    vim.system({ 'tmux', 'load-buffer', '-' }, { stdin = markdown }):wait()
+    vim.system({ 'tmux', 'paste-buffer', '-p', '-t', 'agent' })
+  end,
+},
+```
 
 ### GHLitePRDiff
 

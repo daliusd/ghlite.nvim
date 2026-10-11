@@ -1,3 +1,4 @@
+local config = require('ghlite.config')
 local system = require('ghlite.system')
 
 local M = {}
@@ -72,6 +73,45 @@ end
 function M.get_current_git_branch_name()
   local result = system.run_str('git branch --show-current')
   return vim.split(result, '\n')[1]
+end
+
+--- @param body string
+--- @return boolean
+local function is_html_comment(body)
+  -- NOTE: naive check if it is HTML comment
+  return config.s.html_comments_command ~= false and body:match('<%s*[%w%-]+.-%s*>') ~= nil
+end
+
+--- Render an HTML comment body (as bots often post) to text with
+--- `html_comments_command`; other bodies are returned unchanged.
+--- @param body string
+--- @return string
+function M.html_to_text(body)
+  if not is_html_comment(body) then
+    return body
+  end
+  local success, result = pcall(function()
+    return system.run_sync(config.s.html_comments_command, { stdin = body })
+  end)
+  if success and result.code == 0 then
+    return result.stdout
+  end
+  return body
+end
+
+--- `html_to_text` without blocking the main loop, for exports rendering many comments.
+--- @async
+--- @param body string
+--- @return string
+function M.html_to_text_async(body)
+  if not is_html_comment(body) then
+    return body
+  end
+  local success, result = pcall(system.run_result, config.s.html_comments_command, { stdin = body })
+  if success and result.code == 0 then
+    return result.stdout
+  end
+  return body
 end
 
 function M.get_comment(buf_name, split_command, prompt, content, key_binding, callback)
