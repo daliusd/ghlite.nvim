@@ -41,6 +41,33 @@ function M.run_result(cmd, opts)
   return async.await(3, vim.system, cmd, vim.tbl_extend('force', { text = true }, opts or {}))
 end
 
+--- Most commands `map_parallel` runs at once.
+local parallel_limit = 8
+
+--- Call `fn` on every item concurrently, a few at a time, and return the results in
+--- item order. For per-item commands that would otherwise run one after another.
+--- @async
+--- @generic T, R
+--- @param items T[]
+--- @param fn async fun(item: T): R
+--- @return R[]
+function M.map_parallel(items, fn)
+  local limit = async.semaphore(parallel_limit)
+  local tasks = {}
+  for i, item in ipairs(items) do
+    tasks[i] = async.run(function()
+      return limit:with(function()
+        return fn(item)
+      end)
+    end)
+  end
+  local results = {}
+  for i, task in ipairs(tasks) do
+    results[i] = async.await(task)
+  end
+  return results
+end
+
 --- Run a command synchronously and return its result.
 --- @param cmd string[]
 --- @param opts table|nil

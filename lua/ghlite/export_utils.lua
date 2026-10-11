@@ -4,15 +4,11 @@
 -- reviewed, then numbered items anchored to `path:line`, so prompts written for those
 -- tools work unchanged.
 
+local utils = require('ghlite.utils')
+
 require('ghlite.types')
 
 local M = {}
-
---- @param value any
---- @return boolean
-local function is_null(value)
-  return value == nil or value == vim.NIL
-end
 
 --- @param body string|nil
 --- @return string
@@ -26,10 +22,10 @@ end
 --- @param line number|nil
 --- @return string
 function M.format_location(path, start_line, line)
-  if is_null(line) then
+  if utils.is_null(line) then
     return '`' .. path .. '`'
   end
-  if is_null(start_line) or start_line == line then
+  if utils.is_null(start_line) or start_line == line then
     return string.format('`%s:%d`', path, line)
   end
   return string.format('`%s:%d-%d`', path, start_line, line)
@@ -105,10 +101,7 @@ function M.collect_threads(comments_list, git_root, opts)
   end
 
   for filename, conversations in pairs(comments_list) do
-    local path = filename
-    if filename:sub(1, #git_root + 1) == git_root .. '/' then
-      path = filename:sub(#git_root + 2)
-    end
+    local path = utils.relative_path(git_root, filename) or filename
 
     for _, conversation in ipairs(conversations) do
       local keep = #conversation.comments > 0
@@ -135,7 +128,7 @@ function M.collect_threads(comments_list, git_root, opts)
     if a.path ~= b.path then
       return a.path < b.path
     end
-    return (is_null(a.line) and 0 or a.line) < (is_null(b.line) and 0 or b.line)
+    return (utils.is_null(a.line) and 0 or a.line) < (utils.is_null(b.line) and 0 or b.line)
   end)
   return threads
 end
@@ -143,16 +136,26 @@ end
 --- Keep PR-level entries (review summaries or conversation comments) that carry a body.
 --- @param entries table[]|nil `gh pr view` reviews or comments
 --- @param exclude_authors string[]|nil
---- @param to_text fun(body: string): string
+--- @param to_texts fun(bodies: string[]): string[] renders all kept bodies in one call
 --- @return ExportNote[]
-function M.collect_notes(entries, exclude_authors, to_text)
-  --- @type ExportNote[]
-  local notes = {}
+function M.collect_notes(entries, exclude_authors, to_texts)
+  local kept = {}
   for _, entry in ipairs(entries or {}) do
     local author = entry.author and entry.author.login or 'unknown'
-    local body = clean_body(to_text(entry.body or ''))
-    if body ~= '' and not is_excluded(author, exclude_authors) then
-      table.insert(notes, { author = author, state = entry.state, body = body })
+    if not is_excluded(author, exclude_authors) then
+      table.insert(kept, { author = author, state = entry.state, body = entry.body or '' })
+    end
+  end
+
+  local texts = to_texts(vim.tbl_map(function(note)
+    return note.body
+  end, kept))
+  --- @type ExportNote[]
+  local notes = {}
+  for i, note in ipairs(kept) do
+    local body = clean_body(texts[i])
+    if body ~= '' then
+      table.insert(notes, { author = note.author, state = note.state, body = body })
     end
   end
   return notes
@@ -170,7 +173,7 @@ end
 
 --- @param drafts AgentDraft[]
 --- @return AgentDraft[] sorted copy, by path and line
-function M.sort_drafts(drafts)
+local function sort_drafts(drafts)
   local sorted = vim.list_extend({}, drafts)
   table.sort(sorted, function(a, b)
     if a.path ~= b.path then
@@ -206,10 +209,10 @@ function M.render(export, opts)
   local pr = export.pr
   if pr ~= nil then
     table.insert(lines, string.format('Reviewing pull request #%d: %s', pr.number, pr.title or ''))
-    if not is_null(pr.url) then
+    if not utils.is_null(pr.url) then
       table.insert(lines, 'URL: ' .. pr.url)
     end
-    if not is_null(pr.head) then
+    if not utils.is_null(pr.head) then
       table.insert(lines, 'Head: ' .. pr.head:sub(1, 7))
     end
     blank()
@@ -237,7 +240,7 @@ function M.render(export, opts)
   if #export.drafts > 0 then
     table.insert(lines, '## Comments')
     table.insert(lines, '')
-    for i, draft in ipairs(M.sort_drafts(export.drafts)) do
+    for i, draft in ipairs(sort_drafts(export.drafts)) do
       local marker = string.format('%d. ', i)
       add_item(
         lines,
@@ -293,7 +296,7 @@ function M.render(export, opts)
         clean_body(first.body),
         indent
       )
-      if not is_null(thread.url) and thread.url ~= '' then
+      if not utils.is_null(thread.url) and thread.url ~= '' then
         table.insert(lines, indent .. '<' .. thread.url .. '>')
       end
       for j = 2, #thread.comments do
@@ -305,7 +308,7 @@ function M.render(export, opts)
           indent .. '  '
         )
       end
-      if opts.comment_hunk and not is_null(thread.diff_hunk) then
+      if opts.comment_hunk and not utils.is_null(thread.diff_hunk) then
         add_hunk(lines, thread.diff_hunk, indent)
       end
     end

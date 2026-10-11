@@ -19,11 +19,6 @@ local function is_virtual_buffer(buf_name)
   return buf_name == '' or buf_name:match('^%a[%w+.-]*://') ~= nil
 end
 
---- @return AgentSession|nil
-local function current_agent_session()
-  return agent.get(agent.root())
-end
-
 local anchor_namespace = vim.api.nvim_create_namespace('GHLiteAgentAnchors')
 
 --- Extmarks following the first and last line of each draft while its file is open, so
@@ -93,7 +88,7 @@ end
 --- @param bufnr integer
 M.save_agent_anchors = function(bufnr)
   local marks = anchors[bufnr]
-  local session = marks and current_agent_session()
+  local session = marks and agent.current()
   if session == nil then
     return
   end
@@ -155,7 +150,7 @@ end
 --- Redraw agent draft diagnostics on every loaded buffer after the drafts changed.
 M.refresh_agent_drafts = function()
   vim.schedule(function()
-    local session = current_agent_session()
+    local session = agent.current()
     local current_buf = vim.api.nvim_get_current_buf()
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_loaded(bufnr) then
@@ -273,7 +268,7 @@ M.load_comments_on_buffer = function(bufnr)
   local buf_name = vim.api.nvim_buf_get_name(bufnr)
   -- Agent drafts need no PR, so show them before the PR checks below.
   if not is_virtual_buffer(buf_name) then
-    show_agent_drafts(bufnr, buf_name, current_agent_session())
+    show_agent_drafts(bufnr, buf_name, agent.current())
   end
 
   return task.run(function()
@@ -306,8 +301,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
   config.log('load_comments_on_diff_buffer')
   local diagnostics = {}
 
-  -- Local changes have no PR, so threads loaded for one earlier do not belong here.
-  for filename, comments in pairs(state.diff_is_local and {} or state.comments_list) do
+  for filename, comments in pairs(state.comments_list) do
     if state.filename_line_to_diff_line[filename] then
       for _, comment in pairs(comments) do
         local diff_line = state.filename_line_to_diff_line[filename][comment.line]
@@ -330,7 +324,7 @@ M.load_comments_on_diff_buffer = function(bufnr)
       return
     end
     vim.diagnostic.set(vim.api.nvim_create_namespace('GHLiteDiffNamespace'), bufnr, diagnostics, {})
-    show_agent_drafts(bufnr, nil, current_agent_session())
+    show_agent_drafts(bufnr, nil, agent.current())
   end)
 end
 
@@ -461,7 +455,7 @@ end
 --- @param line number
 local function new_conversation(selected_pr, input, filename, start_line, line)
   local review = pr_utils.active_pending_review(selected_pr.number)
-  local path = filename:sub(#utils.get_git_root() + 2)
+  local path = utils.relative_path(utils.get_git_root(), filename)
   local new_comment, id, url, thread_id
 
   if review ~= nil then
@@ -524,54 +518,51 @@ local function comment_for_agent(session)
     ui.notify('Nothing to comment on here; comment on the working-tree side of the diff.', vim.log.levels.WARN)
     return
   end
-  local path = agent.relative_path(session, filename)
+  local path = utils.relative_path(session.root, filename)
   if path == nil then
     ui.notify('File is not under git folder.', vim.log.levels.ERROR)
     return
   end
 
   ui.schedule()
-  local prompt = '<!-- [agent] Type your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
-  utils.get_comment(
-    'Agent comment (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-    config.s.comment_split,
-    prompt,
-    { prompt, '' },
-    config.s.keymaps.comment.send_comment,
-    function(input)
-      if vim.trim(input) == '' then
-        ui.notify('Empty comment discarded.', vim.log.levels.WARN)
-        return
-      end
-      if agent.add_draft(session.root, path, start_line, line, input) == nil then
-        ui.notify('The agent review was ended meanwhile; comment not added.', vim.log.levels.WARN)
-        return
-      end
-      ui.notify('Comment added to agent review.')
-      M.refresh_agent_drafts()
+  utils.ask_comment('Agent comment', '[agent] Type your comment', function(input)
+    if vim.trim(input) == '' then
+      ui.notify('Empty comment discarded.', vim.log.levels.WARN)
+      return
     end
-  )
+    if agent.add_draft(session.root, path, start_line, line, input) == nil then
+      ui.notify('The agent review was ended meanwhile; comment not added.', vim.log.levels.WARN)
+      return
+    end
+    ui.notify('Comment added to agent review.')
+    M.refresh_agent_drafts()
+  end)
 end
 
 --- Agent drafts on the cursor line, when an agent review is open.
 --- @async
 --- @return AgentDraft[] drafts
 --- @return AgentSession|nil session
+--- @return string|nil filename of the cursor line, set when drafts were found
+--- @return integer|nil line
+--- @return string|nil reason 'notified' when the user was already told the line has no file
 local function get_agent_drafts_on_line()
-  local session = agent.get(agent.root())
+  local session = agent.current()
   if session == nil or #session.drafts == 0 then
     return {}, session
   end
-  local filename, _, line = get_current_filename_and_line(true)
-  local path = filename and agent.relative_path(session, filename)
+  local filename, _, line, reason = get_current_filename_and_line(true)
+  local path = filename and utils.relative_path(session.root, filename)
   if path == nil then
-    return {}, session
+    return {}, session, nil, nil, reason
   end
   local bufnr = vim.api.nvim_get_current_buf()
   return vim.tbl_filter(function(draft)
     return draft.path == path and select(2, draft_lines(bufnr, draft)) == line
   end, session.drafts),
-    session
+    session,
+    filename,
+    line
 end
 
 M.comment_on_line = function()
@@ -598,8 +589,7 @@ M.comment_on_line = function()
       return
     end
 
-    local git_root = utils.get_git_root()
-    if current_filename:sub(1, #git_root + 1) ~= git_root .. '/' then
+    if utils.relative_path(utils.get_git_root(), current_filename) == nil then
       ui.notify('File is not under git folder.', vim.log.levels.ERROR)
       return
     end
@@ -610,18 +600,9 @@ M.comment_on_line = function()
       conversations = M.get_conversations(current_filename, current_line)
     end
 
-    local prompt = '<!-- Type your '
-      .. (#conversations > 0 and 'reply' or 'comment')
-      .. ' and press '
-      .. config.s.keymaps.comment.send_comment
-      .. ': -->'
-
-    utils.get_comment(
-      (#conversations > 0 and 'PR reply' or 'PR comment') .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-      config.s.comment_split,
-      prompt,
-      { prompt, '' },
-      config.s.keymaps.comment.send_comment,
+    utils.ask_comment(
+      #conversations > 0 and 'PR reply' or 'PR comment',
+      'Type your ' .. (#conversations > 0 and 'reply' or 'comment'),
       function(input)
         task.run(function()
           --- @async
@@ -764,30 +745,21 @@ end
 --- @param comment Comment
 --- @param conversation GroupedComment
 local function edit_comment_body(comment, conversation)
-  local prompt = '<!-- Change your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
+  utils.ask_comment('PR edit comment', 'Change your comment', function(input)
+    task.run(function()
+      ui.notify('Updating comment...')
+      local resp = gh.update_comment(comment.id, input)
+      if resp['errors'] == nil then
+        ui.notify('Comment updated.')
+        comment.body = resp.body
+        refresh_content(conversation)
 
-  utils.get_comment(
-    'PR edit comment' .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-    config.s.comment_split,
-    prompt,
-    vim.split(prompt .. '\n' .. comment.body, '\n'),
-    config.s.keymaps.comment.send_comment,
-    function(input)
-      task.run(function()
-        ui.notify('Updating comment...')
-        local resp = gh.update_comment(comment.id, input)
-        if resp['errors'] == nil then
-          ui.notify('Comment updated.')
-          comment.body = resp.body
-          refresh_content(conversation)
-
-          M.load_comments_on_current_buffer()
-        else
-          ui.notify('Failed to update the comment.', vim.log.levels.ERROR)
-        end
-      end)
-    end
-  )
+        M.load_comments_on_current_buffer()
+      else
+        ui.notify('Failed to update the comment.', vim.log.levels.ERROR)
+      end
+    end)
+  end, { body = comment.body })
 end
 
 --- When agent drafts sit on the cursor line, pick one of them or of the own GitHub
@@ -798,7 +770,11 @@ end
 --- @return { draft?: AgentDraft, comment?: Comment, conversation?: GroupedComment }|nil choice
 --- @return AgentSession|nil session
 local function select_own_comment_with_drafts(prompt)
-  local drafts, session = get_agent_drafts_on_line()
+  local drafts, session, filename, line, reason = get_agent_drafts_on_line()
+  if reason == 'notified' then
+    -- The user was already warned; a GitHub lookup would warn again.
+    return true
+  end
   if #drafts == 0 then
     return false
   end
@@ -806,8 +782,7 @@ local function select_own_comment_with_drafts(prompt)
   local choices = vim.tbl_map(function(draft)
     return { draft = draft }
   end, drafts)
-  local filename, _, line = get_current_filename_and_line(true)
-  if filename ~= nil and #M.get_conversations(filename, line) > 0 then
+  if #M.get_conversations(filename, line) > 0 then
     local comments_list, conversations_list = get_own_comments(filename, line)
     for i, comment in ipairs(comments_list) do
       table.insert(choices, { comment = comment, conversation = conversations_list[i] })
@@ -832,26 +807,18 @@ end
 --- @param session AgentSession
 --- @param draft AgentDraft
 local function edit_draft_body(session, draft)
-  local prompt = '<!-- [agent] Change your comment and press ' .. config.s.keymaps.comment.send_comment .. ': -->'
-  utils.get_comment(
-    'Agent edit comment (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-    config.s.comment_split,
-    prompt,
-    vim.split(prompt .. '\n' .. draft.body, '\n'),
-    config.s.keymaps.comment.send_comment,
-    function(input)
-      if vim.trim(input) == '' then
-        ui.notify('Empty comment discarded; use :GHLitePRDeleteComment to delete it.', vim.log.levels.WARN)
-        return
-      end
-      if not agent.update_draft(session.root, draft.id, input) then
-        ui.notify('The agent comment no longer exists.', vim.log.levels.WARN)
-        return
-      end
-      ui.notify('Agent comment updated.')
-      M.refresh_agent_drafts()
+  utils.ask_comment('Agent edit comment', '[agent] Change your comment', function(input)
+    if vim.trim(input) == '' then
+      ui.notify('Empty comment discarded; use :GHLitePRDeleteComment to delete it.', vim.log.levels.WARN)
+      return
     end
-  )
+    if not agent.update_draft(session.root, draft.id, input) then
+      ui.notify('The agent comment no longer exists.', vim.log.levels.WARN)
+      return
+    end
+    ui.notify('Agent comment updated.')
+    M.refresh_agent_drafts()
+  end, { body = draft.body })
 end
 
 --- @async
@@ -1078,7 +1045,7 @@ M.load_comments_on_buffer_by_filename = function(bufnr, filename)
 
     -- File buffers got their drafts in load_comments_on_buffer already.
     if is_virtual_buffer(vim.api.nvim_buf_get_name(bufnr)) then
-      show_agent_drafts(bufnr, filename, current_agent_session())
+      show_agent_drafts(bufnr, filename, agent.current())
     end
     config.log('load_comments_on_buffer filename', filename)
     if state.comments_list[filename] ~= nil then

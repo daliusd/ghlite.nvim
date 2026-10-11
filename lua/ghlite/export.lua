@@ -7,6 +7,7 @@ local export_utils = require('ghlite.export_utils')
 local gh = require('ghlite.gh')
 local pr_utils = require('ghlite.pr_utils')
 local state = require('ghlite.state')
+local system = require('ghlite.system')
 local task = require('ghlite.task')
 local ui = require('ghlite.ui')
 local utils = require('ghlite.utils')
@@ -15,6 +16,14 @@ require('ghlite.types')
 
 local M = {}
 
+--- Render comment bodies to text concurrently: each HTML body runs `html_comments_command`.
+--- @async
+--- @param bodies string[]
+--- @return string[]
+local function bodies_to_text(bodies)
+  return system.map_parallel(bodies, utils.html_to_text_async)
+end
+
 --- Gather the agent session's drafts plus the selected PR's review summaries,
 --- conversation comments and review threads.
 --- @async
@@ -22,7 +31,7 @@ local M = {}
 --- @return ExportData
 function M.collect(summary)
   local agent_config = config.s.agent
-  local session = agent.get(agent.root())
+  local session = agent.current()
   --- @type ExportData
   local export = {
     summary = summary,
@@ -49,9 +58,8 @@ function M.collect(summary)
   }
 
   if agent_config.github_comments and pr_info ~= nil then
-    export.reviews = export_utils.collect_notes(pr_info.reviews, agent_config.exclude_authors, utils.html_to_text_async)
-    export.pr_comments =
-      export_utils.collect_notes(pr_info.comments, agent_config.exclude_authors, utils.html_to_text_async)
+    export.reviews = export_utils.collect_notes(pr_info.reviews, agent_config.exclude_authors, bodies_to_text)
+    export.pr_comments = export_utils.collect_notes(pr_info.comments, agent_config.exclude_authors, bodies_to_text)
   end
 
   if agent_config.github_threads then
@@ -82,7 +90,7 @@ end
 --- @async
 --- @param markdown string
 --- @param export ExportData
-function M.output(markdown, export)
+local function send_output(markdown, export)
   ui.schedule()
   local output = config.s.agent.output
   if type(output) == 'function' then
@@ -109,7 +117,7 @@ function M.send(export)
     intro = config.s.agent.intro,
     comment_hunk = config.s.comment_hunk,
   })
-  M.output(markdown, export)
+  send_output(markdown, export)
   return true
 end
 

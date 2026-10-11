@@ -19,12 +19,6 @@ local function parse_or_default(str, default)
   return default
 end
 
---- @param value any
---- @return boolean
-local function is_null(value)
-  return value == nil or value == vim.NIL
-end
-
 --- @async
 --- @param silent boolean|nil suppress expected gh errors when probing passively
 --- @return PullRequest|nil
@@ -487,7 +481,7 @@ function M.get_pending_comments(review)
   each_pr_node(nil, review.pr_number, 'reviewThreads', fields, function(thread)
     local nodes = thread.comments and thread.comments.nodes or {}
     local root = nodes[1]
-    if root == nil or (is_null(thread.line) and is_null(thread.originalLine)) then
+    if root == nil or (utils.is_null(thread.line) and utils.is_null(thread.originalLine)) then
       return
     end
 
@@ -504,7 +498,7 @@ function M.get_pending_comments(review)
           -- Replies group under the thread root, which REST already reported when the
           -- thread itself is not pending.
           in_reply_to_id = index > 1 and root.databaseId or nil,
-          user = { login = is_null(node.author) and '' or node.author.login },
+          user = { login = utils.is_null(node.author) and '' or node.author.login },
           body = node.body,
           updated_at = node.updatedAt,
           diff_hunk = node.diffHunk,

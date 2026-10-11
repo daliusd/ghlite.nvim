@@ -813,12 +813,11 @@ function M.toggle_file_viewed()
         end
         return
       end
-      local git_root = utils.get_git_root()
-      if filename:sub(1, #git_root + 1) ~= git_root .. '/' then
+      path = utils.relative_path(utils.get_git_root(), filename)
+      if path == nil then
         ui.notify('File is not under git folder.', vim.log.levels.ERROR)
         return
       end
-      path = filename:sub(#git_root + 2)
       pr_number = selected_pr.number
       pr_id, states = gh.get_viewed_files(pr_number)
     end
@@ -1029,27 +1028,16 @@ local function submit_agent_review()
   end
 
   ui.schedule()
-  local prompt = '<!-- [agent] Type an optional summary and press '
-    .. config.s.keymaps.comment.send_comment
-    .. ' to export the review: -->'
-
-  utils.get_comment(
-    'Agent Review Submit (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-    config.s.comment_split,
-    prompt,
-    { prompt, '' },
-    config.s.keymaps.comment.send_comment,
-    function(input)
-      task.run(function()
-        if not export.send(export.collect(input)) then
-          return
-        end
-        agent.discard(root)
-        comments.refresh_agent_drafts()
-        ui.notify('Agent review submitted.')
-      end)
-    end
-  )
+  utils.ask_comment('Agent Review Submit', '[agent] Type an optional summary', function(input)
+    task.run(function()
+      if not export.send(export.collect(input)) then
+        return
+      end
+      agent.discard(root)
+      comments.refresh_agent_drafts()
+      ui.notify('Agent review submitted.')
+    end)
+  end, { purpose = 'to export the review' })
 end
 
 --- @param kind string|nil 'github' or 'agent'; defaults to the review new comments join
@@ -1087,23 +1075,41 @@ function M.submit_review(kind)
 
     -- GitHub requires a body for every event except APPROVE.
     ui.schedule()
-    local prompt = '<!-- Type your review summary and press '
-      .. config.s.keymaps.comment.send_comment
-      .. ' to submit the review: -->'
-
-    utils.get_comment(
-      'PR Review Submit: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-      config.s.comment_split,
-      prompt,
-      { prompt, '' },
-      config.s.keymaps.comment.send_comment,
-      function(input)
-        task.run(function()
-          submit_pending_review(review, event, input)
-        end)
-      end
-    )
+    utils.ask_comment('PR Review Submit: ' .. selected_pr.number, 'Type your review summary', function(input)
+      task.run(function()
+        submit_pending_review(review, event, input)
+      end)
+    end, { purpose = 'to submit the review' })
   end)
+end
+
+--- Discard the agent review and its drafts, asking first when it has any.
+--- @async
+local function discard_agent_review()
+  local root = agent_root_or_notify()
+  if root == nil then
+    return
+  end
+  local session = agent.get(root)
+  if session == nil then
+    ui.notify('No agent review started.', vim.log.levels.WARN)
+    return
+  end
+  -- Drafts exist nowhere else, and without an argument the review discarded can be a
+  -- surprise, e.g. after a restart forgot that a GitHub review was started last.
+  if #session.drafts > 0 then
+    local question = string.format(
+      'Discard the agent review and its %d comment%s?',
+      #session.drafts,
+      #session.drafts == 1 and '' or 's'
+    )
+    if ui.confirm(question, '&Yes\n&No', 2) ~= 1 then
+      return
+    end
+  end
+  agent.discard(root)
+  comments.refresh_agent_drafts()
+  ui.notify('Agent review discarded.')
 end
 
 --- @param kind string|nil 'github' or 'agent'; defaults to the review new comments join
@@ -1114,30 +1120,7 @@ function M.discard_review(kind)
       return
     end
     if kind == 'agent' then
-      local root = agent_root_or_notify()
-      if root == nil then
-        return
-      end
-      local session = agent.get(root)
-      if session == nil then
-        ui.notify('No agent review started.', vim.log.levels.WARN)
-        return
-      end
-      -- Drafts exist nowhere else, and without an argument the review discarded can be a
-      -- surprise, e.g. after a restart forgot that a GitHub review was started last.
-      if #session.drafts > 0 then
-        local question = string.format(
-          'Discard the agent review and its %d comment%s?',
-          #session.drafts,
-          #session.drafts == 1 and '' or 's'
-        )
-        if ui.confirm(question, '&Yes\n&No', 2) ~= 1 then
-          return
-        end
-      end
-      agent.discard(root)
-      comments.refresh_agent_drafts()
-      ui.notify('Agent review discarded.')
+      discard_agent_review()
       return
     end
 
@@ -1192,30 +1175,19 @@ function M.request_changes_pr()
     end
 
     ui.schedule()
-    local prompt = '<!-- Type your comment and press '
-      .. config.s.keymaps.comment.send_comment
-      .. ' to request PR changes: -->'
+    utils.ask_comment('PR Request Changes: ' .. selected_pr.number, 'Type your comment', function(input)
+      task.run(function()
+        local review = pr_utils.active_pending_review(selected_pr.number)
+        if review ~= nil then
+          submit_pending_review(review, 'REQUEST_CHANGES', input)
+          return
+        end
 
-    utils.get_comment(
-      'PR Request Changes: ' .. selected_pr.number .. ' (' .. os.date('%Y-%m-%d %H:%M:%S') .. ')',
-      config.s.comment_split,
-      prompt,
-      { prompt, '' },
-      config.s.keymaps.comment.send_comment,
-      function(input)
-        task.run(function()
-          local review = pr_utils.active_pending_review(selected_pr.number)
-          if review ~= nil then
-            submit_pending_review(review, 'REQUEST_CHANGES', input)
-            return
-          end
-
-          ui.notify('PR request changes started...')
-          gh.request_changes_pr(selected_pr.number, input)
-          ui.notify('PR request changes finished.')
-        end)
-      end
-    )
+        ui.notify('PR request changes started...')
+        gh.request_changes_pr(selected_pr.number, input)
+        ui.notify('PR request changes finished.')
+      end)
+    end, { purpose = 'to request PR changes' })
   end)
 end
 

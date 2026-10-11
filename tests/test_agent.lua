@@ -668,6 +668,9 @@ T['GHLitePRDiff shows local changes and draft diagnostics without a PR'] = funct
     local state = require('ghlite.state')
     agent.start(dir)
     agent.add_draft(dir, 'a.txt', 2, 2, 'Why upper case?')
+    -- Threads of a PR loaded earlier do not belong to the local changes.
+    state.comments_list = { [dir .. '/a.txt'] = { { line = 2, content = 'Old thread', comments = { { id = 1 } } } } }
+    state.comments_pr_number = 12
 
     with_overrides({
       ['ghlite.pr_utils'] = {
@@ -692,6 +695,9 @@ T['GHLitePRDiff shows local changes and draft diagnostics without a PR'] = funct
 
     local buf = state.diff_buffer_id
     expect.equality(state.diff_is_local, true)
+    expect.equality(state.comments_list, {})
+    expect.equality(state.comments_pr_number, nil)
+    expect.equality(vim.diagnostic.get(buf, { namespace = vim.api.nvim_create_namespace('GHLiteDiffNamespace') }), {})
     expect.equality(vim.api.nvim_buf_get_name(buf):find('Local Diff: main', 1, true) ~= nil, true)
     local diagnostics = vim.diagnostic.get(buf, { namespace = vim.api.nvim_create_namespace('GHLiteAgentNamespace') })
     expect.equality(#diagnostics, 1)
@@ -959,27 +965,6 @@ T['delete_comment offers own GitHub comments next to agent drafts'] = function()
   expect.equality(deleted, 55)
   expect.equality(#agent.get(root).drafts, 1)
   state.comments_list = {}
-  vim.api.nvim_buf_delete(bufnr, { force = true })
-end
-
-T['the local diff shows no review threads of a PR loaded earlier'] = function()
-  reset()
-  local comments = require('ghlite.comments')
-  local state = require('ghlite.state')
-  local bufnr = vim.api.nvim_create_buf(false, true)
-  state.diff_is_local = true
-  state.comments_list = { ['/repo/lua/a.lua'] = { { line = 2, content = 'Old thread', comments = { { id = 1 } } } } }
-  state.filename_line_to_diff_line = { ['/repo/lua/a.lua'] = { [2] = 5 } }
-
-  with_immediate_schedule(function()
-    with_overrides(agent_overrides(), function()
-      comments.load_comments_on_diff_buffer(bufnr)
-    end)
-  end)
-
-  expect.equality(vim.diagnostic.get(bufnr), {})
-  state.comments_list = {}
-  reset()
   vim.api.nvim_buf_delete(bufnr, { force = true })
 end
 

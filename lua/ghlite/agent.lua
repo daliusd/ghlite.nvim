@@ -146,6 +146,12 @@ function M.get(root)
   return cached.session or nil
 end
 
+--- The active session of the current repository.
+--- @return AgentSession|nil
+function M.current()
+  return M.get(M.root())
+end
+
 --- @param root string
 --- @return AgentSession session
 --- @return boolean created false when a session was already active
@@ -281,16 +287,6 @@ function M.move_drafts(root, moves)
   end)
 end
 
---- @param session AgentSession
---- @param filename string absolute path
---- @return string|nil path relative to the session root, nil outside it
-function M.relative_path(session, filename)
-  if filename:sub(1, #session.root + 1) ~= session.root .. '/' then
-    return nil
-  end
-  return filename:sub(#session.root + 2)
-end
-
 --- @param draft AgentDraft
 --- @return string
 function M.format_draft(draft)
@@ -342,10 +338,11 @@ function M.get_local_diff(scope)
   end
 
   local diff = git(diff_command(scope.merge_base))
-  for path in git({ 'ls-files', '--others', '--exclude-standard', '-z' }):gmatch('[^%z]+') do
-    diff = diff .. git(diff_command('--no-index', '--', '/dev/null', path))
-  end
-  return diff
+  local untracked = vim.split(git({ 'ls-files', '--others', '--exclude-standard', '-z' }), '\0', { trimempty = true })
+  local untracked_diffs = system.map_parallel(untracked, function(path)
+    return git(diff_command('--no-index', '--', '/dev/null', path))
+  end)
+  return diff .. table.concat(untracked_diffs)
 end
 
 --- Forget cached sessions and roots; for tests.

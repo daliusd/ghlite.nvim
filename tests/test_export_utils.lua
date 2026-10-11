@@ -3,8 +3,8 @@ local expect = MiniTest.expect
 
 local export_utils = require('ghlite.export_utils')
 
-local function identity(body)
-  return body
+local function identity(bodies)
+  return bodies
 end
 
 T['format_location renders single lines, ranges and whole files'] = function()

@@ -168,15 +168,34 @@ local function open_diff_buffer(name, diff_content_lines, is_local)
   return buf
 end
 
---- Show the local changes an agent review covers when no PR is selected.
+--- The selected PR or, for an agent review without one, the local changes it covers.
+--- Notifies and returns neither when there is nothing to show.
 --- @async
-local function load_local_diff()
+--- @param no_pr_message string warning when there is neither a PR nor an agent review
+--- @return PullRequest|nil selected_pr
+--- @return LocalScope|nil scope
+local function pr_or_local_scope(no_pr_message)
+  -- Without a PR an agent review covers the local changes, so look one up quietly.
+  local has_agent_review = agent.current() ~= nil
+  local selected_pr = pr_utils.get_selected_pr(has_agent_review)
+  if selected_pr ~= nil then
+    return selected_pr, nil
+  end
+  if not has_agent_review then
+    ui.notify(no_pr_message, vim.log.levels.WARN)
+    return nil, nil
+  end
   local scope = agent.resolve_scope()
   if scope == nil then
     ui.notify('No commits to compare local changes with.', vim.log.levels.ERROR)
-    return
   end
+  return nil, scope
+end
 
+--- Show the local changes an agent review covers when no PR is selected.
+--- @async
+--- @param scope LocalScope
+local function load_local_diff(scope)
   ui.notify('Local diff loading started...')
   local diff_content = agent.get_local_diff(scope)
   if vim.trim(diff_content or '') == '' then
@@ -186,6 +205,9 @@ local function load_local_diff()
   local diff_content_lines = vim.split(diff_content, '\n')
   construct_mappings(diff_content_lines)
   state.diff_is_local = true
+  -- Local changes have no PR, so threads loaded for one earlier do not belong to them.
+  state.comments_list = {}
+  state.comments_pr_number = nil
 
   local buf = open_diff_buffer('Local Diff: ' .. scope.base, diff_content_lines, true)
   comments.load_comments_on_diff_buffer(buf)
@@ -194,15 +216,12 @@ end
 
 function M.load_pr_diff()
   return task.run(function()
-    -- Without a PR an agent review covers the local changes, so look one up quietly.
-    local has_agent_review = agent.get(agent.root()) ~= nil
-    local selected_pr = pr_utils.get_selected_pr(has_agent_review)
+    local selected_pr, scope = pr_or_local_scope('No PR selected/checked out')
+    if scope ~= nil then
+      load_local_diff(scope)
+      return
+    end
     if selected_pr == nil then
-      if has_agent_review then
-        load_local_diff()
-        return
-      end
-      ui.notify('No PR selected/checked out', vim.log.levels.WARN)
       return
     end
 
@@ -238,21 +257,14 @@ function M.load_pr_diffview()
   end
 
   return task.run(function()
-    local has_agent_review = agent.get(agent.root()) ~= nil
-    local selected_pr = pr_utils.get_selected_pr(has_agent_review)
-    if selected_pr == nil then
-      if not has_agent_review then
-        ui.notify('No PR to work with.', vim.log.levels.WARN)
-        return
-      end
+    local selected_pr, scope = pr_or_local_scope('No PR to work with.')
+    if scope ~= nil then
       -- The working tree against the merge base: the local changes an agent review covers.
-      local scope = agent.resolve_scope()
-      if scope == nil then
-        ui.notify('No commits to compare local changes with.', vim.log.levels.ERROR)
-        return
-      end
       ui.schedule()
       vim.cmd(string.format('%s %s', diff_tool == 'diffview' and 'DiffviewOpen' or 'CodeDiff', scope.merge_base))
+      return
+    end
+    if selected_pr == nil then
       return
     end
 
