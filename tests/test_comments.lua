@@ -169,6 +169,32 @@ T['open_comment opens the only conversation on the current line'] = function()
   vim.api.nvim_buf_delete(bufnr, { force = true })
 end
 
+T['open_comment on a diff header line warns once instead of failing'] = function()
+  reset_state()
+  local state = require('ghlite.state')
+  local comments = require('ghlite.comments')
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'diff --git a/a.lua b/a.lua', '@@ -1 +1 @@', '+a' })
+  vim.api.nvim_set_current_buf(bufnr)
+  vim.api.nvim_win_set_cursor(0, { 2, 0 })
+  state.diff_buffer_id = bufnr
+  state.diff_line_to_filename_line = { [3] = { '/repo/a.lua', 1 } }
+
+  local messages = {}
+  with_overrides({
+    ['ghlite.ui'] = {
+      notify = function(message)
+        table.insert(messages, message)
+      end,
+    },
+  }, function()
+    comments.open_comment():wait(1000)
+  end)
+
+  expect.equality(messages, { 'No file line here; move to a line of a hunk.' })
+  vim.api.nvim_buf_delete(bufnr, { force = true })
+end
+
 T['get_codediff_filename parses fallback URLs and validates PR commit'] = function()
   reset_state()
   local comments = require('ghlite.comments')

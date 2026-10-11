@@ -44,6 +44,10 @@ local function open_file_from_diff(open_command)
       local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
 
       local fnpair = state.diff_line_to_filename_line[cursor_line]
+      if fnpair == nil then
+        ui.notify('No file line here; move to a line of a hunk.', vim.log.levels.WARN)
+        return
+      end
       local file_path = fnpair[1]
       local line_in_file = fnpair[2]
       vim.cmd(open_command .. ' ' .. file_path)
