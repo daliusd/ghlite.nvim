@@ -425,7 +425,9 @@ T['reply refuses to join the review when the thread id is unknown'] = function()
   expect.equality(notifications, { 'Cannot add reply to review: run :GHLitePRLoadComments first.' })
 end
 
-T['comment_on_line replies to the existing conversation and updates content'] = function()
+--- Runs comment_on_line with the cursor on a line holding one thread; `pick` answers the
+--- thread picker given its labels.
+local function comment_on_thread_line(pick)
   reset_state()
   local comments = require('ghlite.comments')
   local state = require('ghlite.state')
@@ -437,7 +439,7 @@ T['comment_on_line replies to the existing conversation and updates content'] = 
         line = 2,
         start_line = 2,
         url = 'https://github.test/comment/55',
-        content = 'old content',
+        content = 'Root thread',
         comments = {
           {
             id = 55,
@@ -460,9 +462,11 @@ T['comment_on_line replies to the existing conversation and updates content'] = 
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { 'one', 'two' })
   vim.api.nvim_set_current_buf(bufnr)
   vim.api.nvim_win_set_cursor(0, { 2, 0 })
+  -- Normal-mode invocations still see '< and '> left behind by an earlier visual selection.
+  vim.fn.setpos("'<", { 0, 1, 1, 0 })
+  vim.fn.setpos("'>", { 0, 2, 1, 0 })
 
-  local reply_call
-  local refresh_count = 0
+  local result = { refresh_count = 0 }
   with_overrides({
     ['ghlite.pr_utils'] = {
       get_selected_pr = function()
@@ -479,19 +483,27 @@ T['comment_on_line replies to the existing conversation and updates content'] = 
       get_git_root = function()
         return '/repo'
       end,
-      get_comment = function(_, _, _, _, _, cb)
+      get_comment = function(title, _, _, _, _, cb)
+        result.editor_title = title
         cb('reply body')
       end,
     },
     ['ghlite.ui'] = {
       notify = function() end,
+      select = function(items, opts)
+        return items[pick(vim.tbl_map(opts.format_item, items))]
+      end,
     },
     ['ghlite.gh'] = {
       get_pending_review = function()
         return nil
       end,
+      new_comment = function(_, body, path, start_line, line)
+        result.new_comment_call = { body = body, path = path, start_line = start_line, line = line }
+        return { errors = {} }
+      end,
       reply_to_comment = function(pr_number, body, reply_to)
-        reply_call = { pr_number = pr_number, body = body, reply_to = reply_to }
+        result.reply_call = { pr_number = pr_number, body = body, reply_to = reply_to }
         return {
           id = 56,
           html_url = 'https://github.test/comment/56',
@@ -507,21 +519,51 @@ T['comment_on_line replies to the existing conversation and updates content'] = 
     },
     ['ghlite.comments'] = {
       load_comments_on_current_buffer = function()
-        refresh_count = refresh_count + 1
+        result.refresh_count = result.refresh_count + 1
       end,
     },
   }, function()
-    comments.comment_on_line():wait(1000)
+    comments.comment_on_line({ line1 = 2, line2 = 2 }):wait(1000)
   end)
 
-  local conversation = state.comments_list['/repo/lua/a.lua'][1]
-  expect.equality(reply_call, { pr_number = 12, body = 'reply body', reply_to = 55 })
-  expect.equality(#conversation.comments, 2)
-  expect.equality(conversation.comments[2].body, 'reply body')
-  expect.equality(conversation.content:find('reply body', 1, true) ~= nil, true)
-  expect.equality(refresh_count, 1)
-
+  result.conversation = state.comments_list['/repo/lua/a.lua'][1]
   vim.api.nvim_buf_delete(bufnr, { force = true })
+  return result
+end
+
+T['comment_on_line replies to the thread picked before the editor opens'] = function()
+  local labels
+  local result = comment_on_thread_line(function(items)
+    labels = items
+    return 1
+  end)
+
+  expect.equality(labels, { 'Root thread', 'New thread' })
+  expect.equality(result.editor_title:match('^PR reply') ~= nil, true)
+  expect.equality(result.reply_call, { pr_number = 12, body = 'reply body', reply_to = 55 })
+  expect.equality(#result.conversation.comments, 2)
+  expect.equality(result.conversation.content:find('reply body', 1, true) ~= nil, true)
+  expect.equality(result.refresh_count, 1)
+end
+
+T['comment_on_line starts a new thread on a line that already has one'] = function()
+  local result = comment_on_thread_line(function()
+    return 2
+  end)
+
+  expect.equality(result.editor_title:match('^PR comment') ~= nil, true)
+  expect.equality(result.reply_call, nil)
+  expect.equality(result.new_comment_call, { body = 'reply body', path = 'lua/a.lua', start_line = 2, line = 2 })
+end
+
+T['comment_on_line opens no editor when the thread picker is cancelled'] = function()
+  local result = comment_on_thread_line(function()
+    return nil
+  end)
+
+  expect.equality(result.editor_title, nil)
+  expect.equality(result.reply_call, nil)
+  expect.equality(result.new_comment_call, nil)
 end
 
 T['update_comment updates the selected own comment and refreshes content'] = function()
