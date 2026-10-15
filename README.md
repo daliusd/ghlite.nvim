@@ -541,19 +541,16 @@ This command will not show correct diff sometimes if you have gh older than
 
 ### GHLitePRAddComment
 
-This command opens buffer where you can write your comment.
+This command opens buffer where you can write your comment. If the cursor line
+has loaded comment threads (using `GHLitePRLoadComments` command), you first
+pick the thread to reply to, or `New thread`.
 
 If you want to create multi-line comment then select multiple lines using
 visual mode.
 
 Supported key bindings:
 
-* c-enter:
-
-    * If there is already loaded comment on cursor line (using
-      `GHLitePRLoadComments` command) then comment is added as reply to thread.
-
-    * If there is no comment on line then new conversation is started.
+* c-enter: sends the comment.
 
 ### GHLitePRUpdateComment
 

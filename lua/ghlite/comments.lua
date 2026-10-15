@@ -342,22 +342,19 @@ M.get_conversations = function(current_filename, current_line)
 end
 
 --- @async
+--- @param range? { line1: integer, line2: integer } user-command range, defaults to the cursor line
 --- @param any_file boolean|nil accept any file buffer instead of requiring the PR checked out
 --- @return string|nil filename
 --- @return integer|nil start_line
 --- @return integer|nil line
 --- @return string|nil reason 'silent' when the caller should stay quiet, 'notified' when
 --- the user was already told why
-local function get_current_filename_and_line(any_file)
+local function get_current_filename_and_line(range, any_file)
   ui.schedule()
   local current_buf = vim.api.nvim_get_current_buf()
-  local current_start_line = vim.fn.line("'<")
-  local current_line = vim.fn.line("'>")
-
-  if current_line == 0 then
-    current_start_line = vim.api.nvim_win_get_cursor(0)[1]
-    current_line = current_start_line
-  end
+  local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+  local current_start_line = range and range.line1 or cursor_line
+  local current_line = range and range.line2 or cursor_line
 
   local current_filename = vim.api.nvim_buf_get_name(current_buf)
 
@@ -507,8 +504,9 @@ end
 --- Add a draft to the agent review session.
 --- @async
 --- @param session AgentSession
-local function comment_for_agent(session)
-  local filename, start_line, line, reason = get_current_filename_and_line(true)
+--- @param range? { line1: integer, line2: integer } user-command range
+local function comment_for_agent(session, range)
+  local filename, start_line, line, reason = get_current_filename_and_line(range, true)
   if reason == 'notified' then
     return
   end
@@ -551,7 +549,7 @@ local function get_agent_drafts_on_line()
   if session == nil or #session.drafts == 0 then
     return {}, session
   end
-  local filename, _, line, reason = get_current_filename_and_line(true)
+  local filename, _, line, reason = get_current_filename_and_line(nil, true)
   local path = filename and utils.relative_path(session.root, filename)
   if path == nil then
     return {}, session, nil, nil, reason
@@ -565,13 +563,14 @@ local function get_agent_drafts_on_line()
     line
 end
 
-M.comment_on_line = function()
+--- @param opts? { line1: integer, line2: integer } user-command range
+M.comment_on_line = function(opts)
   return task.run(function()
     -- While an agent review is the target every new comment stays local, even on lines
     -- with GitHub threads, so nothing meant for the agent is published by accident.
     local root = agent.root()
     if agent.is_target(root) then
-      comment_for_agent(agent.get(root))
+      comment_for_agent(agent.get(root), opts)
       return
     end
 
@@ -581,7 +580,7 @@ M.comment_on_line = function()
       return
     end
 
-    local current_filename, current_start_line, current_line, reason = get_current_filename_and_line()
+    local current_filename, current_start_line, current_line, reason = get_current_filename_and_line(opts)
     if current_filename == nil or current_start_line == nil or current_line == nil then
       if reason == nil then
         ui.notify('You are on a branch without PR.', vim.log.levels.WARN)
@@ -595,30 +594,37 @@ M.comment_on_line = function()
     end
 
     ui.schedule()
-    local conversations = {}
+    --- @type GroupedComment|nil
+    local conversation
     if current_start_line == current_line then
-      conversations = M.get_conversations(current_filename, current_line)
+      local conversations = M.get_conversations(current_filename, current_line)
+      if #conversations > 0 then
+        local new_thread = {}
+        table.insert(conversations, new_thread)
+        local choice = ui.select(conversations, {
+          prompt = 'Reply to:',
+          format_item = function(item)
+            return item == new_thread and 'New thread' or vim.split(item.content, '\n')[1]
+          end,
+        })
+        if choice == nil then
+          return
+        end
+        if choice ~= new_thread then
+          conversation = choice
+        end
+      end
     end
 
+    local kind = conversation and 'reply' or 'comment'
+    ui.schedule()
     utils.ask_comment(
-      #conversations > 0 and 'PR reply' or 'PR comment',
-      'Type your ' .. (#conversations > 0 and 'reply' or 'comment'),
+      'PR ' .. kind,
+      'Type your ' .. kind,
       function(input)
         task.run(function()
-          --- @async
-          --- @param grouped_comment GroupedComment
-          if #conversations == 1 then
-            M.reply_to_comment(state.selected_PR.number, input, conversations[1], M.load_comments_on_current_buffer)
-          elseif #conversations > 1 then
-            local comment = ui.select(conversations, {
-              prompt = 'Select comment to reply to:',
-              format_item = function(comment)
-                return string.format('%s', vim.split(comment.content, '\n')[1])
-              end,
-            })
-            if comment ~= nil then
-              M.reply_to_comment(state.selected_PR.number, input, comment, M.load_comments_on_current_buffer)
-            end
+          if conversation then
+            M.reply_to_comment(state.selected_PR.number, input, conversation, M.load_comments_on_current_buffer)
           else
             new_conversation(state.selected_PR, input, current_filename, current_start_line, current_line)
           end
